@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-13",
+  "cloneCommit": "201cb141662f5d54350eca21b04627dd1ef25a88",
+  "backendBuild": "passed",
+  "frontendFrozenInstall": "passed",
+  "frontendBuild": "passed",
+  "startup": "passed",
+  "apiChecks": 27,
+  "completeTask": "SUCCEEDED",
+  "model": "TEST_STUB",
+  "temporaryPorts": [
+    13000,
+    18065
+  ],
+  "temporaryServices": "stopped after verification"
+}

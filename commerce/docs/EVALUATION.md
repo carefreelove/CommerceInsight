@@ -51,3 +51,9 @@ API 检查覆盖登录、CSRF、匿名访问、角色权限、跨店铺访问、
 前后端镜像均从仓库源码构建成功。完整 Docker Compose 中的 Java 后端、Nuxt 前端和专用 MySQL 已启动，通过前端代理完成全部 27 项 API 检查，以及实际模型提问、报告图表、刷新恢复和窄屏浏览器检查。
 
 实际服务状态、健康检查和累计预算快照保存于 [deployment-results.json](../evaluation/deployment-results.json)。费用与预留快照约为 1.09 元，预算上限为 18 元。
+
+## 全新克隆与远程 CI
+
+从公开仓库的 main 分支克隆到全新临时目录，按锁文件构建前端及可执行 Java JAR，分别在独立端口启动，完成 27 项 API 检查及一次 TEST_STUB 完整分析。临时服务已关闭，验收结果见 [fresh-clone-results.json](../evaluation/fresh-clone-results.json)。
+
+GitHub Actions 的前端测试/构建、后端单元与 MySQL 集成测试、JAR 打包和 API 冒烟检查全部通过。该 CI 使用模型桩，真实模型评测由前述独立记录提供。已验证的源码提交和运行链接见 [ci-results.json](../evaluation/ci-results.json)。
