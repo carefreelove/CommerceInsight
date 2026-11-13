@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-13",
+  "runtime": "Docker Compose",
+  "services": [
+    {
+      "Service": "backend",
+      "State": "running",
+      "Health": "",
+      "Image": "commerceinsight-backend",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 8065,
+          "PublishedPort": 8065,
+          "Protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "Service": "frontend",
+      "State": "running",
+      "Health": "",
+      "Image": "commerceinsight-frontend",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 3000,
+          "PublishedPort": 3000,
+          "Protocol": "tcp"
+        }
+      ]
+    },
+    {
+      "Service": "mysql",
+      "State": "running",
+      "Health": "healthy",
+      "Image": "mysql:8.4",
+      "Publishers": [
+        {
+          "URL": "127.0.0.1",
+          "TargetPort": 3306,
+          "PublishedPort": 3308,
+          "Protocol": "tcp"
+        }
+      ]
+    }
+  ],
+  "frontendProxyHealth": 200,
+  "backend": {
+    "application": "CommerceInsight",
+    "status": "UP"
+  },
+  "modelConfigured": true,
+  "budget": {
+    "id": 1,
+    "committed_cny": 1.092737,
+    "limit_cny": 18.0
+  },
+  "apiChecks": 27,
+  "browser": {
+    "browser": "Chromium",
+    "screenshots": [
+      "admin.png",
+      "analysis.png",
+      "history.png",
+      "login.png",
+      "metrics.png",
+      "mobile.png",
+      "overview.png"
+    ],
+    "errors": []
+  }
+}
