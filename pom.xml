@@ -330,7 +330,7 @@
         <configuration>
           <java>
             <removeUnusedImports/>
-            <ratchetFrom>origin/main</ratchetFrom>
+            <ratchetFrom>upstream/main</ratchetFrom>
             <licenseHeader>
               <content>
                 <![CDATA[

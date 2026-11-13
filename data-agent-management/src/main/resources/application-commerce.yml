@@ -1,0 +1,38 @@
+server:
+  port: 8065
+  reactive:
+    session:
+      timeout: 2h
+      cookie:
+        http-only: true
+        same-site: strict
+spring:
+  application:
+    name: CommerceInsight
+  datasource:
+    url: jdbc:mysql://${CI_DB_HOST:127.0.0.1}:${CI_DB_PORT:3308}/commerce_app?serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&allowMultiQueries=false
+    username: ${CI_DB_USERNAME:ci_app}
+    password: ${CI_DB_PASSWORD:ci_app_local_demo}
+  sql:
+    init:
+      mode: never
+  ai:
+    mcp:
+      server:
+        enabled: false
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
+    vectorstore:
+      type: none
+commerce:
+  db-host: ${CI_DB_HOST:127.0.0.1}
+  db-port: ${CI_DB_PORT:3308}
+  read-password: ${CI_READ_PASSWORD:ci_read_local_demo}
+  demo-password: ${CI_DEMO_PASSWORD:CommerceDemo!2026}
+  model-key: ${CI_MODEL_KEY:${ANTHROPIC_AUTH_TOKEN:}}
+  model-base-url: ${CI_MODEL_BASE_URL:https://api.deepseek.com}
+  model-name: ${CI_MODEL_NAME:deepseek-flash}
+  mock-model: ${CI_MOCK_MODEL:false}

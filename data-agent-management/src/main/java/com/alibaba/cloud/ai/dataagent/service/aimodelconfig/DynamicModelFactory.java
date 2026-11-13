@@ -52,6 +52,11 @@ public class DynamicModelFactory {
 	 * 统一使用 OpenAiChatModel，通过 baseUrl 实现多厂商兼容
 	 */
 	public ChatModel createChatModel(ModelConfigDTO config) {
+        return createChatModel(config, RetryUtils.DEFAULT_RETRY_TEMPLATE);
+    }
+
+    /** Allow callers to account for every attempt in a bounded billing budget. */
+    public ChatModel createChatModel(ModelConfigDTO config, org.springframework.retry.support.RetryTemplate retryTemplate) {
 
 		log.info("Creating NEW ChatModel instance. Provider: {}, Model: {}, BaseUrl: {}", config.getProvider(),
 				config.getModelName(), config.getBaseUrl());
@@ -79,7 +84,7 @@ public class DynamicModelFactory {
 			.streamUsage(true)
 			.build();
 		// 4. 返回统一的 OpenAiChatModel
-		return OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(openAiChatOptions).build();
+		return OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(openAiChatOptions).retryTemplate(retryTemplate).build();
 	}
 
 	/**
