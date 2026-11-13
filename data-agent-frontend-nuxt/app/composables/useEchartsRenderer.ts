@@ -66,7 +66,7 @@ const EXTENDED_COLORS = [
 	'#009db2',
 ];
 
-function renderEChartsInContainer(container: HTMLElement) {
+export function renderEChartsInContainer(container: HTMLElement) {
 	const elements = container.querySelectorAll<HTMLElement>('.md-echarts');
 	elements.forEach((el) => {
 		try {
@@ -88,12 +88,12 @@ function renderEChartsInContainer(container: HTMLElement) {
 
 			// Mark as initialized before touching DOM
 			el.removeAttribute('data-echarts-config');
-			el.textContent = '';
 
 			const existingChart = echarts.getInstanceByDom(el);
 			if (existingChart) {
 				existingChart.setOption(options, true);
 			} else {
+				el.textContent = '';
 				const chart = echarts.init(el);
 				chart.setOption(options);
 			}
@@ -103,7 +103,7 @@ function renderEChartsInContainer(container: HTMLElement) {
 	});
 }
 
-function disposeEChartsInContainer(container: HTMLElement | null) {
+export function disposeEChartsInContainer(container: HTMLElement | null) {
 	if (!container) return;
 	const elements = container.querySelectorAll<HTMLElement>('.md-echarts');
 	elements.forEach((el) => {

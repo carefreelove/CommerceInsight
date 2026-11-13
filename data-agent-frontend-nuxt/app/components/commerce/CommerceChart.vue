@@ -17,7 +17,10 @@ import {
 	nextTick,
 } from 'vue';
 import * as echarts from 'echarts/core';
-import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
+import {
+	renderEChartsInContainer,
+	disposeEChartsInContainer,
+} from '~/composables/useEchartsRenderer';
 const props = defineProps<{
 	rows: Record<string, any>[];
 	x: string;
@@ -26,7 +29,6 @@ const props = defineProps<{
 	line?: boolean;
 }>();
 const container = ref<HTMLElement | null>(null);
-const { renderECharts } = useEchartsRenderer();
 const options = computed(() => ({
 	animation: false,
 	color: ['#3267d6'],
@@ -64,9 +66,9 @@ async function render() {
 	if (chart) {
 		chart.setAttribute('data-echarts-config', JSON.stringify(options.value));
 	}
-	renderECharts(container.value);
+	if (container.value) renderEChartsInContainer(container.value);
 }
-watch(options, render);
+watch(options, render, { flush: 'post' });
 onMounted(() => {
 	render();
 	observer = new ResizeObserver(() => {
@@ -77,5 +79,8 @@ onMounted(() => {
 	});
 	if (container.value) observer.observe(container.value);
 });
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+	observer?.disconnect();
+	disposeEChartsInContainer(container.value);
+});
 </script>

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "Q01",
+    "name": "monthly_sales",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月的销售额是多少？结果列为 sales。",
+    "goldenSql": "SELECT ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'"
+  },
+  {
+    "id": "Q02",
+    "name": "monthly_orders",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月的支付订单数是多少？结果列为 paid_orders。",
+    "goldenSql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'"
+  },
+  {
+    "id": "Q03",
+    "name": "average_order",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月的平均客单价是多少？结果列为 average_order。",
+    "goldenSql": "SELECT ROUND(SUM(i.paid_amount)/NULLIF(COUNT(DISTINCT o.id),0),2) AS average_order FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'"
+  },
+  {
+    "id": "Q04",
+    "name": "category_sales",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月各品类的销售额是多少？包含零销售品类，结果列 category、sales。",
+    "goldenSql": "SELECT p.category,ROUND(COALESCE(SUM(s.sales),0),2) AS sales FROM products p LEFT JOIN (SELECT i.product_id,SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY i.product_id) s ON s.product_id=p.id GROUP BY p.category ORDER BY p.category"
+  },
+  {
+    "id": "Q05",
+    "name": "monthly_refunds",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月成功退款金额是多少？按退款成功时间统计，结果列 refund_amount。",
+    "goldenSql": "SELECT ROUND(SUM(amount),2) AS refund_amount FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'"
+  },
+  {
+    "id": "Q06",
+    "name": "refund_rate",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月支付订单的订单退款率是多少？截至参考日期，结果列 refund_rate，保留6位小数。",
+    "goldenSql": "SELECT ROUND(1.000000*COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM order_items i JOIN refunds r ON r.order_item_id=i.id WHERE i.order_id=o.id AND r.succeeded_at<'2026-11-14') THEN o.id END)/NULLIF(COUNT(DISTINCT o.id),0),6) AS refund_rate FROM orders o WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'"
+  },
+  {
+    "id": "Q07",
+    "name": "monthly_trend",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "2026年5月至10月各月销售额是多少？结果列 month（YYYY-MM）、sales。",
+    "goldenSql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-05-01' AND o.paid_at<'2026-11-01' GROUP BY month ORDER BY month"
+  },
+  {
+    "id": "Q08",
+    "name": "order_trend",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "2026年5月至10月各月支付订单数是多少？结果列 month（YYYY-MM）、paid_orders。",
+    "goldenSql": "SELECT DATE_FORMAT(paid_at,'%Y-%m') AS month,COUNT(DISTINCT id) AS paid_orders FROM orders WHERE status='PAID' AND paid_at>='2026-05-01' AND paid_at<'2026-11-01' GROUP BY month ORDER BY month"
+  },
+  {
+    "id": "Q09",
+    "name": "top_products",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月销售额最高的5个商品是什么？销售额相同按商品名称升序，结果列 product_name、sales。",
+    "goldenSql": "SELECT p.name AS product_name,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.name ORDER BY sales DESC,product_name LIMIT 5"
+  },
+  {
+    "id": "Q10",
+    "name": "category_orders",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月各品类支付订单数是多少？仅列有支付订单的品类，结果列 category、paid_orders。",
+    "goldenSql": "SELECT p.category,COUNT(DISTINCT o.id) AS paid_orders FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category"
+  },
+  {
+    "id": "Q11",
+    "name": "net_sales",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月期间净销售额是多少？销售额按支付时间，退款按成功时间，结果列 net_sales。",
+    "goldenSql": "SELECT ROUND((SELECT SUM(i.paid_amount) FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01')-(SELECT SUM(amount) FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'),2) AS net_sales"
+  },
+  {
+    "id": "Q12",
+    "name": "sales_comparison",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "比较2026年9月、10月销售额，逐月返回 month（YYYY-MM）、sales。",
+    "goldenSql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01' GROUP BY month ORDER BY month"
+  },
+  {
+    "id": "Q13",
+    "name": "empty_orders",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "2026年11月1日到12日的支付订单数是多少？结果列 paid_orders。",
+    "goldenSql": "SELECT COUNT(DISTINCT id) AS paid_orders FROM orders WHERE status='PAID' AND paid_at>='2026-11-01' AND paid_at<'2026-11-13'"
+  },
+  {
+    "id": "Q14",
+    "name": "zero_denominator",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "2026年11月1日到12日的平均客单价是多少？无支付订单时返回NULL，结果列 average_order。",
+    "goldenSql": "SELECT ROUND(SUM(i.paid_amount)/NULLIF(COUNT(DISTINCT o.id),0),2) AS average_order FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-11-01' AND o.paid_at<'2026-11-13'"
+  },
+  {
+    "id": "Q15",
+    "name": "category_refunds",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月各品类成功退款金额是多少？按退款时间，仅列有退款品类，结果列 category、refund_amount。",
+    "goldenSql": "SELECT p.category,ROUND(SUM(r.amount),2) AS refund_amount FROM refunds r JOIN order_items i ON r.order_item_id=i.id JOIN products p ON p.id=i.product_id WHERE r.succeeded_at>='2026-10-01' AND r.succeeded_at<'2026-11-01' GROUP BY p.category ORDER BY p.category"
+  },
+  {
+    "id": "Q16",
+    "name": "refund_count",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月成功退款的外部退款单数是多少？按成功时间去重，结果列 refund_count。",
+    "goldenSql": "SELECT COUNT(DISTINCT refund_no) AS refund_count FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'"
+  },
+  {
+    "id": "Q17",
+    "name": "product_units",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月各品类已支付商品件数是多少？仅列有销售品类，结果列 category、units。",
+    "goldenSql": "SELECT p.category,SUM(i.quantity) AS units FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category"
+  },
+  {
+    "id": "Q18",
+    "name": "sales_growth",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "2026年10月相比9月的销售额环比增长率是多少？结果列 growth_rate，保留6位小数。",
+    "goldenSql": "SELECT ROUND((SUM(CASE WHEN o.paid_at>='2026-10-01' THEN i.paid_amount ELSE 0 END)-SUM(CASE WHEN o.paid_at<'2026-10-01' THEN i.paid_amount ELSE 0 END))/NULLIF(SUM(CASE WHEN o.paid_at<'2026-10-01' THEN i.paid_amount ELSE 0 END),0),6) AS growth_rate FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01'"
+  },
+  {
+    "id": "Q19",
+    "name": "zero_category",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月新品品类销售额是多少？没有支付记录按0统计，结果列 sales。",
+    "goldenSql": "SELECT ROUND(COALESCE(SUM(i.paid_amount),0),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' AND p.category='新品'"
+  },
+  {
+    "id": "Q20",
+    "name": "category_refund_rate",
+    "scope": 1,
+    "referenceDate": "2026-11-13",
+    "question": "上个月各品类订单退款率是多少？仅列有支付订单的品类，截至参考日期，结果列 category、refund_rate，保留6位小数。",
+    "goldenSql": "SELECT p.category,ROUND(1.000000*COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM refunds r WHERE r.order_item_id=i.id AND r.succeeded_at<'2026-11-14') THEN o.id END)/NULLIF(COUNT(DISTINCT o.id),0),6) AS refund_rate FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category"
+  }
+]

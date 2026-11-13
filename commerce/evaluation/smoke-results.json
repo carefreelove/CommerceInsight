@@ -1,0 +1,153 @@
+{
+  "checks": [
+    {
+      "name": "health",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "anonymous rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "login CSRF required",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "wrong password rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "analyst cannot administer",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "shop scope rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "all-shop scope rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "own overview available",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "admin all-shop overview",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "negative history page rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "create task",
+      "passed": true,
+      "detail": {
+        "id": "58831a2f-17f7-44d9-a934-c0c97c265b08",
+        "user_id": 2,
+        "scope_id": 1,
+        "question": "上个月各品类销售额是多少？",
+        "reference_date": "2026-11-13",
+        "status": "QUEUED",
+        "idempotency_key": "aa7f274c-c87f-401a-822c-767546face1f",
+        "retry_of": null,
+        "error_message": null,
+        "plan_json": null,
+        "report_json": null,
+        "created_at": "2026-11-13T07:52:32.429+00:00",
+        "updated_at": "2026-11-13T07:52:32.429+00:00"
+      }
+    },
+    {
+      "name": "idempotent creation",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "idempotency conflict",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cross-user  rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cross-user /events rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cross-user /report rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cross-user /cancel rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cross-user /retry rejected",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cancel is terminal",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "terminal stable",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "history persisted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "SSE events ordered",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "SSE cursor replay",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "metrics versioned",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "logout",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "session revoked",
+      "passed": true,
+      "detail": null
+    }
+  ]
+}

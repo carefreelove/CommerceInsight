@@ -1,0 +1,182 @@
+{
+  "referenceDate": "2026-11-13",
+  "model": "deepseek-flash",
+  "pricing": "peak/cache-miss, conservative 8 CNY/USD",
+  "cases": [
+    {
+      "id": "Q01",
+      "question": "上个月的销售额是多少？结果列为 sales。",
+      "goldenSql": "SELECT ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "sales": "8441.50"
+        }
+      ],
+      "agent": {
+        "taskId": "cf2aeb72-e5c9-4df9-8d48-049623349c59",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.111,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051108,
+            "charged_cny": 0.0038,
+            "input_tokens": 963,
+            "output_tokens": 155,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.05022,
+            "charged_cny": 0.0033,
+            "input_tokens": 919,
+            "output_tokens": 114,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 1,
+            "sql_text": "SELECT ROUND(SUM(oi.paid_amount), 2) AS sales\nFROM orders o\n\tJOIN order_items oi ON oi.order_id = o.id\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT ROUND(SUM(oi.paid_amount), 2) AS sales\\nFROM orders o\\n\\tJOIN order_items oi ON oi.order_id = o.id\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\",\"columns\":[\"sales\"],\"rows\":[{\"sales\":8441.50}],\"truncated\":false,\"elapsedMs\":11}",
+            "elapsed_ms": 11,
+            "created_at": "2026-11-13T01:32:03.093+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计 commerce_scope_1 店铺在 2026 年 10 月（上个月）按支付时间归属的销售额，仅计 PAID 订单，结果列 sales",
+              "sql": "SELECT ROUND(SUM(oi.paid_amount), 2) AS sales FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围 commerce_scope_1 的销售额为 8441.50。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "unconfirmed": [
+            "查询结果仅返回 1 行汇总值，未提供订单数、明细数或分日数据，无法核对销售额构成",
+            "未确认该销售额是否包含后续退款影响（本查询仅按支付口径统计，未关联退款）"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "matchedAliases": [
+                "销售"
+              ],
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "reason": "名称或别名匹配"
+            },
+            {
+              "matchedAliases": [],
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "reason": "核心口径约束"
+            },
+            {
+              "matchedAliases": [],
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "reason": "核心口径约束"
+            },
+            {
+              "matchedAliases": [],
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "reason": "核心口径约束"
+            },
+            {
+              "matchedAliases": [],
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "reason": "核心口径约束"
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "matchesGolden": false,
+        "error": "CalledProcessError: Command '['mysql', '--protocol=TCP', '-h', '127.0.0.1', '-P', '3308', '-u', 'ci_app', '--batch', '--raw', 'commerce_app']' returned non-zero exit status 1."
+      }
+    }
+  ],
+  "summary": {
+    "count": 1,
+    "agentCorrect": 1,
+    "baselineCorrect": 0,
+    "budget": {
+      "committed_cny": "0.058172",
+      "limit_cny": "18.000000"
+    }
+  }
+}

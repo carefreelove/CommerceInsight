@@ -1,0 +1,13 @@
+{
+  "browser": "Chromium",
+  "screenshots": [
+    "admin.png",
+    "analysis.png",
+    "history.png",
+    "login.png",
+    "metrics.png",
+    "mobile.png",
+    "overview.png"
+  ],
+  "errors": []
+}

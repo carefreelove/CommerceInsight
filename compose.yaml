@@ -1,0 +1,46 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CI_MYSQL_ROOT_PASSWORD:-ci_root_local_demo}
+      TZ: Asia/Shanghai
+    ports:
+      - '127.0.0.1:3308:3306'
+    volumes:
+      - commerce_mysql:/var/lib/mysql
+      - ./commerce/database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 40
+  backend:
+    build:
+      context: .
+      dockerfile: commerce/Dockerfile.backend
+    environment:
+      SPRING_PROFILES_ACTIVE: commerce
+      CI_DB_HOST: mysql
+      CI_DB_PORT: 3306
+      CI_MODEL_KEY: ${CI_MODEL_KEY:-${ANTHROPIC_AUTH_TOKEN:-}}
+      CI_MODEL_BASE_URL: ${CI_MODEL_BASE_URL:-https://api.deepseek.com}
+      CI_MODEL_NAME: ${CI_MODEL_NAME:-deepseek-flash}
+      CI_DEMO_PASSWORD: ${CI_DEMO_PASSWORD:-CommerceDemo!2026}
+    ports:
+      - '127.0.0.1:8065:8065'
+    depends_on:
+      mysql:
+        condition: service_healthy
+  frontend:
+    build:
+      context: .
+      dockerfile: commerce/Dockerfile.frontend
+    environment:
+      CI_BACKEND_URL: http://backend:8065
+      HOST: 0.0.0.0
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      - backend
+volumes:
+  commerce_mysql:

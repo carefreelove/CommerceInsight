@@ -1,0 +1,4138 @@
+{
+  "referenceDate": "2026-11-13",
+  "model": "deepseek-flash",
+  "pricing": "peak/cache-miss, conservative 8 CNY/USD",
+  "cases": [
+    {
+      "id": "Q01",
+      "question": "上个月的销售额是多少？结果列为 sales。",
+      "goldenSql": "SELECT ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "sales": "8441.50"
+        }
+      ],
+      "agent": {
+        "taskId": "88f39b2c-10be-44be-88c7-4ca02e539d4b",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.767,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.05258,
+            "charged_cny": 0.004056,
+            "input_tokens": 1114,
+            "output_tokens": 144,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050213,
+            "charged_cny": 0.003284,
+            "input_tokens": 912,
+            "output_tokens": 114,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 23,
+            "sql_text": "SELECT ROUND(SUM(i.paid_amount), 2) AS sales\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT ROUND(SUM(i.paid_amount), 2) AS sales\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\",\"columns\":[\"sales\"],\"rows\":[{\"sales\":8441.50}],\"truncated\":false,\"elapsedMs\":9}",
+            "elapsed_ms": 9,
+            "created_at": "2026-11-13T01:39:04.133+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计 commerce_scope_1 店铺在 2026 年 10 月（上个月）已支付订单的销售额，结果列 sales",
+              "sql": "SELECT ROUND(SUM(i.paid_amount), 2) AS sales FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围 commerce_scope_1 的销售额为 8441.50。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "unconfirmed": [
+            "查询结果仅返回 1 行汇总值，未提供订单数、明细数或分日数据，无法核对销售额构成",
+            "未确认该销售额是否包含后续退款影响（本查询仅按支付口径统计，未关联退款）"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT SUM(oi.paid_amount) AS sales FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'",
+        "rows": [
+          {
+            "sales": "8441.50"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1187,
+          "completion_tokens": 66,
+          "total_tokens": 1253,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 163
+        },
+        "costCnyConservative": "0.0034824",
+        "elapsedSeconds": 1.195,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q02",
+      "question": "上个月的支付订单数是多少？结果列为 paid_orders。",
+      "goldenSql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "paid_orders": "43"
+        }
+      ],
+      "agent": {
+        "taskId": "f815a037-339d-4b6f-a2c3-c818ee8389fd",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.119,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052608,
+            "charged_cny": 0.003884,
+            "input_tokens": 1118,
+            "output_tokens": 125,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050136,
+            "charged_cny": 0.003202,
+            "input_tokens": 898,
+            "output_tokens": 109,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 24,
+            "sql_text": "SELECT COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\",\"columns\":[\"paid_orders\"],\"rows\":[{\"paid_orders\":43}],\"truncated\":false,\"elapsedMs\":9}",
+            "elapsed_ms": 9,
+            "created_at": "2026-11-13T01:39:08.695+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计 commerce_scope_1 店铺在 2026 年 10 月（上个月）的支付订单数",
+              "sql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31，按支付时间）店铺范围 commerce_scope_1 的支付订单数为 43。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "unconfirmed": [
+            "查询结果仅返回聚合值，未提供订单明细，无法核对去重口径或异常订单情况",
+            "未确认该店铺范围与 shop_id=1 的映射是否完整覆盖 commerce_scope_1"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'",
+        "rows": [
+          {
+            "paid_orders": "43"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1191,
+          "completion_tokens": 55,
+          "total_tokens": 1246,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 167
+        },
+        "costCnyConservative": "0.0033864",
+        "elapsedSeconds": 0.934,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q03",
+      "question": "上个月的平均客单价是多少？结果列为 average_order。",
+      "goldenSql": "SELECT ROUND(SUM(i.paid_amount)/NULLIF(COUNT(DISTINCT o.id),0),2) AS average_order FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "average_order": "196.31"
+        }
+      ],
+      "agent": {
+        "taskId": "60ab5b93-71d8-42d8-bc42-dcd72031b7f0",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.741,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.05262,
+            "charged_cny": 0.00444,
+            "input_tokens": 1118,
+            "output_tokens": 183,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050652,
+            "charged_cny": 0.003713,
+            "input_tokens": 975,
+            "output_tokens": 143,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 25,
+            "sql_text": "SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order\n\t, ROUND(SUM(i.paid_amount), 2) AS sales\n\t, COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\nWHERE o.status = 'PAID'\n\tAND o.shop_id = 1\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order\\n\\t, ROUND(SUM(i.paid_amount), 2) AS sales\\n\\t, COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\nWHERE o.status = 'PAID'\\n\\tAND o.shop_id = 1\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\",\"columns\":[\"average_order\",\"sales\",\"paid_orders\"],\"rows\":[{\"average_order\":196.31,\"sales\":8441.50,\"paid_orders\":43}],\"truncated\":false,\"elapsedMs\":10}",
+            "elapsed_ms": 10,
+            "created_at": "2026-11-13T01:39:13.358+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "计算上个月（2026-10）店铺 commerce_scope_1 的销售额与支付订单数，并求平均客单价",
+              "sql": "SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order, ROUND(SUM(i.paid_amount), 2) AS sales, COUNT(DISTINCT o.id) AS paid_orders FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.status = 'PAID' AND o.shop_id = 1 AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围 commerce_scope_1 的平均客单价为 196.31。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期销售额为 8441.50，支付订单数为 43；平均客单价 196.31 由 8441.50 除以 43 计算得出。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "unconfirmed": [
+            "查询结果仅返回 1 行汇总数据，未提供订单明细或分布，无法判断客单价是否受少数大额订单影响，需要进一步验证。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "客单价"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT ROUND(SUM(oi.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'",
+        "rows": [
+          {
+            "average_order": "196.31"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1190,
+          "completion_tokens": 87,
+          "total_tokens": 1277,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 166
+        },
+        "costCnyConservative": "0.0036912",
+        "elapsedSeconds": 1.182,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q04",
+      "question": "上个月各品类的销售额是多少？包含零销售品类，结果列 category、sales。",
+      "goldenSql": "SELECT p.category,ROUND(COALESCE(SUM(s.sales),0),2) AS sales FROM products p LEFT JOIN (SELECT i.product_id,SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY i.product_id) s ON s.product_id=p.id GROUP BY p.category ORDER BY p.category",
+      "expected": [
+        {
+          "category": "家居",
+          "sales": "3849.50"
+        },
+        {
+          "category": "数码",
+          "sales": "2159.00"
+        },
+        {
+          "category": "新品",
+          "sales": "0.00"
+        },
+        {
+          "category": "服饰",
+          "sales": "2433.00"
+        }
+      ],
+      "agent": {
+        "taskId": "4c05bf9e-c2ab-4e9f-8182-07d2e6559a84",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.939,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052678,
+            "charged_cny": 0.004512,
+            "input_tokens": 1124,
+            "output_tokens": 189,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "sql_repair",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.054351,
+            "charged_cny": 0.004409,
+            "input_tokens": 1317,
+            "output_tokens": 130,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051269,
+            "charged_cny": 0.004676,
+            "input_tokens": 1048,
+            "output_tokens": 225,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 26,
+            "sql_text": "SELECT p.category AS category\n\t, ROUND(COALESCE(SUM(s.sales), 0), 2) AS sales\nFROM products p\n\tLEFT JOIN (\n\t\tSELECT i.product_id, SUM(i.paid_amount) AS sales\n\t\tFROM orders o\n\t\t\tJOIN order_items i ON i.order_id = o.id\n\t\tWHERE o.status = 'PAID'\n\t\t\tAND o.paid_at >= '2026-10-01'\n\t\t\tAND o.paid_at < '2026-11-01'\n\t\t\tAND o.shop_id = 1\n\t\tGROUP BY i.product_id\n\t) s\n\tON s.product_id = p.id\nWHERE p.shop_id = 1\nGROUP BY p.category\nORDER BY sales DESC",
+            "result_json": "{\"sql\":\"SELECT p.category AS category\\n\\t, ROUND(COALESCE(SUM(s.sales), 0), 2) AS sales\\nFROM products p\\n\\tLEFT JOIN (\\n\\t\\tSELECT i.product_id, SUM(i.paid_amount) AS sales\\n\\t\\tFROM orders o\\n\\t\\t\\tJOIN order_items i ON i.order_id = o.id\\n\\t\\tWHERE o.status = 'PAID'\\n\\t\\t\\tAND o.paid_at >= '2026-10-01'\\n\\t\\t\\tAND o.paid_at < '2026-11-01'\\n\\t\\t\\tAND o.shop_id = 1\\n\\t\\tGROUP BY i.product_id\\n\\t) s\\n\\tON s.product_id = p.id\\nWHERE p.shop_id = 1\\nGROUP BY p.category\\nORDER BY sales DESC\",\"columns\":[\"category\",\"sales\"],\"rows\":[{\"category\":\"家居\",\"sales\":3849.50},{\"category\":\"服饰\",\"sales\":2433.00},{\"category\":\"数码\",\"sales\":2159.00},{\"category\":\"新品\",\"sales\":0.00}],\"truncated\":false,\"elapsedMs\":13}",
+            "elapsed_ms": 13,
+            "created_at": "2026-11-13T01:39:19.619+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计上个月（2026-10）各品类销售额，包含零销售品类，按品类汇总支付明细金额",
+              "sql": "SELECT p.category AS category, ROUND(COALESCE(s.sales,0),2) AS sales FROM products p LEFT JOIN (SELECT i.product_id, SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' AND o.shop_id=1 GROUP BY i.product_id) s ON s.product_id=p.id WHERE p.shop_id=1 GROUP BY p.category ORDER BY sales DESC"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月，家居品类销售额为3849.50，在返回的四个品类中最高。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "服饰品类销售额为2433.00，数码品类销售额为2159.00。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "新品品类销售额为0.00，属于零销售品类，已包含在结果中。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "结果共4行且未截断，返回的品类为家居、服饰、数码、新品。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "新品品类零销售可能源于该品类商品尚未上架、缺货或未产生支付订单，需要结合商品与订单明细验证。",
+            "各品类销售额差异可能受品类商品数量、价格带或促销活动影响，需要业务数据验证。"
+          ],
+          "unconfirmed": [
+            "查询仅返回4个品类，无法确认店铺是否还有其他未出现在结果中的品类。",
+            "未确认各品类销售额是否包含跨期退款影响；本结果按支付时间统计销售额，未扣除退款。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.category AS category, COALESCE(SUM(oi.paid_amount), 0) AS sales FROM products p LEFT JOIN order_items oi ON oi.product_id = p.id LEFT JOIN orders o ON o.id = oi.order_id AND o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' WHERE o.id IS NOT NULL OR oi.id IS NULL GROUP BY p.category ORDER BY p.category",
+        "rows": [
+          {
+            "category": "家居",
+            "sales": "3849.50"
+          },
+          {
+            "category": "数码",
+            "sales": "2159.00"
+          },
+          {
+            "category": "新品",
+            "sales": "0.00"
+          },
+          {
+            "category": "服饰",
+            "sales": "2433.00"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1197,
+          "completion_tokens": 111,
+          "total_tokens": 1308,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 173
+        },
+        "costCnyConservative": "0.0039384",
+        "elapsedSeconds": 1.47,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q05",
+      "question": "上个月成功退款金额是多少？按退款成功时间统计，结果列 refund_amount。",
+      "goldenSql": "SELECT ROUND(SUM(amount),2) AS refund_amount FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'",
+      "expected": [
+        {
+          "refund_amount": "598.26"
+        }
+      ],
+      "agent": {
+        "taskId": "b4ac953b-75e1-4626-bbe6-9ada87d4f2e9",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.714,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052678,
+            "charged_cny": 0.00404,
+            "input_tokens": 1123,
+            "output_tokens": 140,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050266,
+            "charged_cny": 0.003852,
+            "input_tokens": 909,
+            "output_tokens": 174,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 27,
+            "sql_text": "SELECT ROUND(SUM(r.amount), 2) AS refund_amount\nFROM refunds r\nWHERE r.shop_id = 1\n\tAND r.status = 'SUCCESS'\n\tAND r.succeeded_at >= '2026-10-01'\n\tAND r.succeeded_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT ROUND(SUM(r.amount), 2) AS refund_amount\\nFROM refunds r\\nWHERE r.shop_id = 1\\n\\tAND r.status = 'SUCCESS'\\n\\tAND r.succeeded_at >= '2026-10-01'\\n\\tAND r.succeeded_at < '2026-11-01'\",\"columns\":[\"refund_amount\"],\"rows\":[{\"refund_amount\":598.26}],\"truncated\":false,\"elapsedMs\":6}",
+            "elapsed_ms": 6,
+            "created_at": "2026-11-13T01:39:24.365+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计 commerce_scope_1 店铺在 2026-10-01 至 2026-11-01（不含）期间按退款成功时间归属的成功退款金额",
+              "sql": "SELECT ROUND(SUM(r.amount), 2) AS refund_amount FROM refunds r WHERE r.shop_id = 1 AND r.status = 'SUCCESS' AND r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）按退款成功时间统计，店铺范围 commerce_scope_1 的成功退款金额为 598.26。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "退款金额可能集中在少数订单或品类，需按订单/商品明细进一步拆分验证",
+            "该金额为现金流口径的期间退款，可能与同期支付订单队列的退款率口径存在差异，需结合订单退款率指标核对"
+          ],
+          "unconfirmed": [
+            "未确认退款笔数、涉及订单数及商品/品类分布",
+            "未确认是否存在跨期退款（9月及之前支付、10月成功退款）对本期金额的影响",
+            "未确认是否存在退款状态非 SUCCESS 或未成功的退款记录被排除的具体数量"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT SUM(r.amount) AS refund_amount FROM refunds r WHERE r.status = 'SUCCEEDED' AND r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01'",
+        "rows": [
+          {
+            "refund_amount": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1196,
+          "completion_tokens": 56,
+          "total_tokens": 1252,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 172
+        },
+        "costCnyConservative": "0.0034080",
+        "elapsedSeconds": 1.038,
+        "matchesGolden": false
+      }
+    },
+    {
+      "id": "Q06",
+      "question": "上个月支付订单的订单退款率是多少？截至参考日期，结果列 refund_rate，保留6位小数。",
+      "goldenSql": "SELECT ROUND(1.000000*COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM order_items i JOIN refunds r ON r.order_item_id=i.id WHERE i.order_id=o.id AND r.succeeded_at<'2026-11-14') THEN o.id END)/NULLIF(COUNT(DISTINCT o.id),0),6) AS refund_rate FROM orders o WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "refund_rate": "0.186047"
+        }
+      ],
+      "agent": {
+        "taskId": "f813495a-406b-4d89-b5cf-4fe30cfb874c",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.724,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052786,
+            "charged_cny": 0.005559,
+            "input_tokens": 1136,
+            "output_tokens": 295,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052018,
+            "charged_cny": 0.004424,
+            "input_tokens": 1195,
+            "output_tokens": 162,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 28,
+            "sql_text": "SELECT ROUND(COUNT(DISTINCT CASE \n\t\tWHEN EXISTS (\n\t\t\t\tSELECT 1\n\t\t\t\tFROM order_items i\n\t\t\t\t\tJOIN refunds r ON r.order_item_id = i.id\n\t\t\t\tWHERE i.order_id = o.id\n\t\t\t\t\tAND r.status = 'SUCCESS'\n\t\t\t\t\tAND r.succeeded_at < '2026-11-14'\n\t\t\t)\n\t\tTHEN o.id\n\tEND) * 1.000000 / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate\n\t, COUNT(DISTINCT CASE \n\t\tWHEN EXISTS (\n\t\t\t\tSELECT 1\n\t\t\t\tFROM order_items i\n\t\t\t\t\tJOIN refunds r ON r.order_item_id = i.id\n\t\t\t\tWHERE i.order_id = o.id\n\t\t\t\t\tAND r.status = 'SUCCESS'\n\t\t\t\t\tAND r.succeeded_at < '2026-11-14'\n\t\t\t)\n\t\tTHEN o.id\n\tEND) AS refunded_orders\n\t, COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT ROUND(COUNT(DISTINCT CASE \\n\\t\\tWHEN EXISTS (\\n\\t\\t\\t\\tSELECT 1\\n\\t\\t\\t\\tFROM order_items i\\n\\t\\t\\t\\t\\tJOIN refunds r ON r.order_item_id = i.id\\n\\t\\t\\t\\tWHERE i.order_id = o.id\\n\\t\\t\\t\\t\\tAND r.status = 'SUCCESS'\\n\\t\\t\\t\\t\\tAND r.succeeded_at < '2026-11-14'\\n\\t\\t\\t)\\n\\t\\tTHEN o.id\\n\\tEND) * 1.000000 / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate\\n\\t, COUNT(DISTINCT CASE \\n\\t\\tWHEN EXISTS (\\n\\t\\t\\t\\tSELECT 1\\n\\t\\t\\t\\tFROM order_items i\\n\\t\\t\\t\\t\\tJOIN refunds r ON r.order_item_id = i.id\\n\\t\\t\\t\\tWHERE i.order_id = o.id\\n\\t\\t\\t\\t\\tAND r.status = 'SUCCESS'\\n\\t\\t\\t\\t\\tAND r.succeeded_at < '2026-11-14'\\n\\t\\t\\t)\\n\\t\\tTHEN o.id\\n\\tEND) AS refunded_orders\\n\\t, COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\",\"columns\":[\"refund_rate\",\"refunded_orders\",\"paid_orders\"],\"rows\":[{\"refund_rate\":0.186047,\"refunded_orders\":8,\"paid_orders\":43}],\"truncated\":false,\"elapsedMs\":10}",
+            "elapsed_ms": 10,
+            "created_at": "2026-11-13T01:39:29.750+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "计算上个月（2026-10）支付订单队列的订单退款率：分子为截至2026-11-13存在成功退款的去重支付订单数，分母为同期去重支付订单数",
+              "sql": "SELECT ROUND(COUNT(DISTINCT CASE WHEN EXISTS (SELECT 1 FROM order_items i JOIN refunds r ON r.order_item_id=i.id WHERE i.order_id=o.id AND r.status='SUCCESS' AND r.succeeded_at < '2026-11-14') THEN o.id END) * 1.000000 / NULLIF(COUNT(DISTINCT o.id),0), 6) AS refund_rate, COUNT(DISTINCT CASE WHEN EXISTS (SELECT 1 FROM order_items i JOIN refunds r ON r.order_item_id=i.id WHERE i.order_id=o.id AND r.status='SUCCESS' AND r.succeeded_at < '2026-11-14') THEN o.id END) AS refunded_orders, COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.shop_id = 1 AND o.status='PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月支付订单的订单退款率为0.186047（保留6位小数）。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "该退款率由8个存在成功退款的去重订单除以43个支付去重订单计算得出。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "退款率约18.6%可能受个别品类或商品退款集中影响，需按品类/商品拆分验证",
+            "可能存在退款成功时间接近分析时点、后续仍有变动的订单，需持续观察"
+          ],
+          "unconfirmed": [
+            "查询仅返回汇总结果，未提供按品类、商品或退款原因的明细，无法确认退款集中来源",
+            "未确认43个支付订单与8个退款订单的具体订单清单及退款金额分布"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": [
+                "退款率"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT ROUND(COUNT(DISTINCT CASE WHEN r.order_id IS NOT NULL THEN o.id END) / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate FROM orders o LEFT JOIN (SELECT DISTINCT oi.order_id FROM refunds rf JOIN order_items oi ON oi.id = rf.order_item_id WHERE rf.status = 'SUCCESS' AND rf.succeeded_at < '2026-11-14') r ON r.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01'",
+        "rows": [
+          {
+            "refund_rate": "0.1860"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1202,
+          "completion_tokens": 142,
+          "total_tokens": 1344,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 178
+        },
+        "costCnyConservative": "0.0042480",
+        "elapsedSeconds": 1.468,
+        "matchesGolden": false
+      }
+    },
+    {
+      "id": "Q07",
+      "question": "2026年5月至10月各月销售额是多少？结果列 month（YYYY-MM）、sales。",
+      "goldenSql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-05-01' AND o.paid_at<'2026-11-01' GROUP BY month ORDER BY month",
+      "expected": [
+        {
+          "month": "2026-05",
+          "sales": "8014.50"
+        },
+        {
+          "month": "2026-06",
+          "sales": "10344.50"
+        },
+        {
+          "month": "2026-07",
+          "sales": "7818.50"
+        },
+        {
+          "month": "2026-08",
+          "sales": "9141.50"
+        },
+        {
+          "month": "2026-09",
+          "sales": "9433.50"
+        },
+        {
+          "month": "2026-10",
+          "sales": "8441.50"
+        }
+      ],
+      "agent": {
+        "taskId": "1dc4d6e1-7fee-46f0-a3fb-de827bc3f729",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.725,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052654,
+            "charged_cny": 0.004325,
+            "input_tokens": 1126,
+            "output_tokens": 169,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051015,
+            "charged_cny": 0.005146,
+            "input_tokens": 1040,
+            "output_tokens": 276,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 29,
+            "sql_text": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month\n\t, ROUND(SUM(i.paid_amount), 2) AS sales\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\nWHERE o.status = 'PAID'\n\tAND o.paid_at >= '2026-05-01'\n\tAND o.paid_at < '2026-11-01'\n\tAND o.shop_id = 1\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\nORDER BY month",
+            "result_json": "{\"sql\":\"SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month\\n\\t, ROUND(SUM(i.paid_amount), 2) AS sales\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\nWHERE o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-05-01'\\n\\tAND o.paid_at < '2026-11-01'\\n\\tAND o.shop_id = 1\\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\\nORDER BY month\",\"columns\":[\"month\",\"sales\"],\"rows\":[{\"month\":\"2026-05\",\"sales\":8014.50},{\"month\":\"2026-06\",\"sales\":10344.50},{\"month\":\"2026-07\",\"sales\":7818.50},{\"month\":\"2026-08\",\"sales\":9141.50},{\"month\":\"2026-09\",\"sales\":9433.50},{\"month\":\"2026-10\",\"sales\":8441.50}],\"truncated\":false,\"elapsedMs\":13}",
+            "elapsed_ms": 13,
+            "created_at": "2026-11-13T01:39:34.470+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-05-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "按支付月份统计2026年5月至10月各月销售额（仅PAID订单，SUM明细paid_amount）",
+              "sql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month, ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-05-01' AND o.paid_at<'2026-11-01' AND o.shop_id=1 GROUP BY DATE_FORMAT(o.paid_at,'%Y-%m') ORDER BY month"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026-05 销售额为 8014.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026-06 销售额为 10344.50，是样本六个月中最高的月份。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026-07 销售额为 7818.50，是样本六个月中最低的月份。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026-08 销售额为 9141.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026-09 销售额为 9433.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026-10 销售额为 8441.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "查询结果共 6 行，未截断，覆盖 2026-05 至 2026-10 全部六个月。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "6 月销售额最高、7 月最低，可能与季节性促销或活动节奏有关，需要业务活动记录验证。",
+            "各月销售额在约 7800 至 10300 之间波动，波动原因需要结合流量、转化率或商品结构数据验证。"
+          ],
+          "unconfirmed": [
+            "未确认各月销售额波动的原因。",
+            "未确认是否存在退款对净销售额的影响；本次结果仅为销售额口径。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-05-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, SUM(oi.paid_amount) AS sales FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-05-01' AND o.paid_at < '2026-11-01' GROUP BY DATE_FORMAT(o.paid_at, '%Y-%m') ORDER BY month",
+        "rows": [
+          {
+            "month": "2026-05",
+            "sales": "8014.50"
+          },
+          {
+            "month": "2026-06",
+            "sales": "10344.50"
+          },
+          {
+            "month": "2026-07",
+            "sales": "7818.50"
+          },
+          {
+            "month": "2026-08",
+            "sales": "9141.50"
+          },
+          {
+            "month": "2026-09",
+            "sales": "9433.50"
+          },
+          {
+            "month": "2026-10",
+            "sales": "8441.50"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1199,
+          "completion_tokens": 100,
+          "total_tokens": 1299,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 175
+        },
+        "costCnyConservative": "0.0038376",
+        "elapsedSeconds": 1.12,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q08",
+      "question": "2026年5月至10月各月支付订单数是多少？结果列 month（YYYY-MM）、paid_orders。",
+      "goldenSql": "SELECT DATE_FORMAT(paid_at,'%Y-%m') AS month,COUNT(DISTINCT id) AS paid_orders FROM orders WHERE status='PAID' AND paid_at>='2026-05-01' AND paid_at<'2026-11-01' GROUP BY month ORDER BY month",
+      "expected": [
+        {
+          "month": "2026-05",
+          "paid_orders": "43"
+        },
+        {
+          "month": "2026-06",
+          "paid_orders": "43"
+        },
+        {
+          "month": "2026-07",
+          "paid_orders": "43"
+        },
+        {
+          "month": "2026-08",
+          "paid_orders": "43"
+        },
+        {
+          "month": "2026-09",
+          "paid_orders": "43"
+        },
+        {
+          "month": "2026-10",
+          "paid_orders": "43"
+        }
+      ],
+      "agent": {
+        "taskId": "98f4f593-408f-48a5-bad5-a9be0e6a2621",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.714,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052683,
+            "charged_cny": 0.004248,
+            "input_tokens": 1130,
+            "output_tokens": 160,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050938,
+            "charged_cny": 0.003732,
+            "input_tokens": 1019,
+            "output_tokens": 134,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 30,
+            "sql_text": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-05-01'\n\tAND o.paid_at < '2026-11-01'\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\nORDER BY month",
+            "result_json": "{\"sql\":\"SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-05-01'\\n\\tAND o.paid_at < '2026-11-01'\\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\\nORDER BY month\",\"columns\":[\"month\",\"paid_orders\"],\"rows\":[{\"month\":\"2026-05\",\"paid_orders\":43},{\"month\":\"2026-06\",\"paid_orders\":43},{\"month\":\"2026-07\",\"paid_orders\":43},{\"month\":\"2026-08\",\"paid_orders\":43},{\"month\":\"2026-09\",\"paid_orders\":43},{\"month\":\"2026-10\",\"paid_orders\":43}],\"truncated\":false,\"elapsedMs\":10}",
+            "elapsed_ms": 10,
+            "created_at": "2026-11-13T01:39:39.686+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-05-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "按支付月份统计 commerce_scope_1 店铺 2026年5月至10月各月去重支付订单数",
+              "sql": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-05-01' AND o.paid_at < '2026-11-01' GROUP BY DATE_FORMAT(o.paid_at, '%Y-%m') ORDER BY month"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年5月至10月，每月支付订单数均为43笔，六个月合计258笔。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "各月支付订单数在样本中完全一致，未出现月度波动。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "各月支付订单数完全相同，可能源于数据生成或同步异常，也可能反映业务处于稳定状态，需要结合订单明细和业务记录验证。"
+          ],
+          "unconfirmed": [
+            "查询结果未截断，共6行，覆盖2026年5月至10月全部月份。",
+            "未确认各月支付订单数完全一致的原因。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-05-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.status = 'PAID' AND o.paid_at >= '2026-05-01' AND o.paid_at < '2026-11-01' GROUP BY DATE_FORMAT(o.paid_at, '%Y-%m') ORDER BY month",
+        "rows": [
+          {
+            "month": "2026-05",
+            "paid_orders": "43"
+          },
+          {
+            "month": "2026-06",
+            "paid_orders": "43"
+          },
+          {
+            "month": "2026-07",
+            "paid_orders": "43"
+          },
+          {
+            "month": "2026-08",
+            "paid_orders": "43"
+          },
+          {
+            "month": "2026-09",
+            "paid_orders": "43"
+          },
+          {
+            "month": "2026-10",
+            "paid_orders": "43"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1203,
+          "completion_tokens": 89,
+          "total_tokens": 1292,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 179
+        },
+        "costCnyConservative": "0.0037416",
+        "elapsedSeconds": 1.639,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q09",
+      "question": "上个月销售额最高的5个商品是什么？销售额相同按商品名称升序，结果列 product_name、sales。",
+      "goldenSql": "SELECT p.name AS product_name,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.name ORDER BY sales DESC,product_name LIMIT 5",
+      "expected": [
+        {
+          "product_name": "家居商品3",
+          "sales": "1566.50"
+        },
+        {
+          "product_name": "家居商品1",
+          "sales": "1427.50"
+        },
+        {
+          "product_name": "数码商品3",
+          "sales": "1394.50"
+        },
+        {
+          "product_name": "服饰商品1",
+          "sales": "981.50"
+        },
+        {
+          "product_name": "家居商品2",
+          "sales": "855.50"
+        }
+      ],
+      "agent": {
+        "taskId": "a5d7aa98-c843-4968-b9da-ea5b0b3da29d",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 9.863,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.05274,
+            "charged_cny": 0.004563,
+            "input_tokens": 1129,
+            "output_tokens": 193,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051344,
+            "charged_cny": 0.004793,
+            "input_tokens": 1049,
+            "output_tokens": 237,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 31,
+            "sql_text": "SELECT p.name AS product_name, ROUND(SUM(i.paid_amount), 2) AS sales\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\n\tJOIN products p ON p.id = i.product_id\nWHERE o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'\n\tAND o.shop_id = 1\n\tAND i.shop_id = 1\n\tAND p.shop_id = 1\nGROUP BY p.id, p.name\nORDER BY sales DESC, product_name ASC\nLIMIT 5",
+            "result_json": "{\"sql\":\"SELECT p.name AS product_name, ROUND(SUM(i.paid_amount), 2) AS sales\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\n\\tJOIN products p ON p.id = i.product_id\\nWHERE o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\\n\\tAND o.shop_id = 1\\n\\tAND i.shop_id = 1\\n\\tAND p.shop_id = 1\\nGROUP BY p.id, p.name\\nORDER BY sales DESC, product_name ASC\\nLIMIT 5\",\"columns\":[\"product_name\",\"sales\"],\"rows\":[{\"product_name\":\"家居商品3\",\"sales\":1566.50},{\"product_name\":\"家居商品1\",\"sales\":1427.50},{\"product_name\":\"数码商品3\",\"sales\":1394.50},{\"product_name\":\"服饰商品1\",\"sales\":981.50},{\"product_name\":\"家居商品2\",\"sales\":855.50}],\"truncated\":false,\"elapsedMs\":7}",
+            "elapsed_ms": 7,
+            "created_at": "2026-11-13T01:39:46.343+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计2026年10月（上个月）各商品销售额，取销售额最高的5个商品，销售额相同按商品名称升序",
+              "sql": "SELECT p.name AS product_name, ROUND(SUM(i.paid_amount), 2) AS sales FROM orders o JOIN order_items i ON i.order_id = o.id JOIN products p ON p.id = i.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' AND o.shop_id = 1 AND i.shop_id = 1 AND p.shop_id = 1 GROUP BY p.id, p.name ORDER BY sales DESC, product_name ASC LIMIT 5"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月销售额最高的商品是家居商品3，销售额为1566.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "销售额排名第2至第5的商品依次为：家居商品1（1427.50）、数码商品3（1394.50）、服饰商品1（981.50）、家居商品2（855.50）。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "查询结果共返回5行，未发生截断，因此这5个商品即为该查询口径下销售额最高的5个商品。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "家居类商品在销售额前5名中占据3席，可能反映该店铺10月家居品类需求较强或客单价较高，但缺少品类整体销售与流量数据，需要验证。"
+          ],
+          "unconfirmed": [
+            "本次结果仅覆盖店铺范围 commerce_scope_1（shop_id=1）且状态为 PAID 的订单，其他店铺或非 PAID 订单的销售情况未确认。",
+            "销售额按 order_items.paid_amount 汇总，未扣除退款；退款对商品排名的影响未确认。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.name AS product_name, SUM(oi.paid_amount) AS sales FROM order_items oi JOIN orders o ON o.id = oi.order_id AND o.status = 'PAID' JOIN products p ON p.id = oi.product_id WHERE o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' GROUP BY p.id, p.name ORDER BY sales DESC, product_name ASC LIMIT 5",
+        "rows": [
+          {
+            "product_name": "家居商品3",
+            "sales": "1566.50"
+          },
+          {
+            "product_name": "家居商品1",
+            "sales": "1427.50"
+          },
+          {
+            "product_name": "数码商品3",
+            "sales": "1394.50"
+          },
+          {
+            "product_name": "服饰商品1",
+            "sales": "981.50"
+          },
+          {
+            "product_name": "家居商品2",
+            "sales": "855.50"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1202,
+          "completion_tokens": 102,
+          "total_tokens": 1304,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 178
+        },
+        "costCnyConservative": "0.0038640",
+        "elapsedSeconds": 7.239,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q10",
+      "question": "上个月各品类支付订单数是多少？仅列有支付订单的品类，结果列 category、paid_orders。",
+      "goldenSql": "SELECT p.category,COUNT(DISTINCT o.id) AS paid_orders FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category",
+      "expected": [
+        {
+          "category": "家居",
+          "paid_orders": "29"
+        },
+        {
+          "category": "数码",
+          "paid_orders": "14"
+        },
+        {
+          "category": "服饰",
+          "paid_orders": "14"
+        }
+      ],
+      "agent": {
+        "taskId": "d2c298af-e62f-4842-8f22-7571a93d318d",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.688,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052721,
+            "charged_cny": 0.004383,
+            "input_tokens": 1130,
+            "output_tokens": 174,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050962,
+            "charged_cny": 0.004594,
+            "input_tokens": 998,
+            "output_tokens": 229,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 32,
+            "sql_text": "SELECT p.category AS category, COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\n\tJOIN products p ON p.id = i.product_id\nWHERE o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'\n\tAND o.shop_id = 1\n\tAND i.shop_id = 1\n\tAND p.shop_id = 1\nGROUP BY p.category\nORDER BY paid_orders DESC",
+            "result_json": "{\"sql\":\"SELECT p.category AS category, COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\n\\tJOIN products p ON p.id = i.product_id\\nWHERE o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\\n\\tAND o.shop_id = 1\\n\\tAND i.shop_id = 1\\n\\tAND p.shop_id = 1\\nGROUP BY p.category\\nORDER BY paid_orders DESC\",\"columns\":[\"category\",\"paid_orders\"],\"rows\":[{\"category\":\"家居\",\"paid_orders\":29},{\"category\":\"数码\",\"paid_orders\":14},{\"category\":\"服饰\",\"paid_orders\":14}],\"truncated\":false,\"elapsedMs\":5}",
+            "elapsed_ms": 5,
+            "created_at": "2026-11-13T01:40:02.177+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计上个月（2026-10）各品类支付订单数，仅列有支付订单的品类",
+              "sql": "SELECT p.category AS category, COUNT(DISTINCT o.id) AS paid_orders FROM orders o JOIN order_items i ON i.order_id = o.id JOIN products p ON p.id = i.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' AND o.shop_id = 1 AND i.shop_id = 1 AND p.shop_id = 1 GROUP BY p.category ORDER BY paid_orders DESC"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围内，家居品类支付订单数为29。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期数码品类支付订单数为14。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期服饰品类支付订单数为14。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "结果共返回3个品类，均存在支付订单，未出现零订单品类。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "家居品类支付订单数明显高于数码和服饰，可能与家居品类商品数量、促销活动或客单价结构有关，需要结合商品与活动数据验证。",
+            "数码与服饰支付订单数相同，可能为巧合，也可能反映两类目在当期需求或曝光上接近，需要进一步验证。"
+          ],
+          "unconfirmed": [
+            "查询结果未截断且仅3行，但未提供各品类订单明细或去重逻辑校验，无法确认是否存在跨品类订单对计数的影响。",
+            "未确认各品类支付订单数在统计期内的分布趋势及是否存在异常波动。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.category AS category, COUNT(DISTINCT o.id) AS paid_orders FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' GROUP BY p.category HAVING COUNT(DISTINCT o.id) > 0 ORDER BY paid_orders DESC",
+        "rows": [
+          {
+            "category": "家居",
+            "paid_orders": "29"
+          },
+          {
+            "category": "数码",
+            "paid_orders": "14"
+          },
+          {
+            "category": "服饰",
+            "paid_orders": "14"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1203,
+          "completion_tokens": 107,
+          "total_tokens": 1310,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 179
+        },
+        "costCnyConservative": "0.0039144",
+        "elapsedSeconds": 2.3,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q11",
+      "question": "上个月期间净销售额是多少？销售额按支付时间，退款按成功时间，结果列 net_sales。",
+      "goldenSql": "SELECT ROUND((SELECT SUM(i.paid_amount) FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01')-(SELECT SUM(amount) FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'),2) AS net_sales",
+      "expected": [
+        {
+          "net_sales": "7843.24"
+        }
+      ],
+      "agent": {
+        "taskId": "e16ac214-58ac-4014-b519-49e91b888431",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.323,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052779,
+            "charged_cny": 0.004904,
+            "input_tokens": 1135,
+            "output_tokens": 227,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051219,
+            "charged_cny": 0.004025,
+            "input_tokens": 1065,
+            "output_tokens": 153,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 33,
+            "sql_text": "SELECT ROUND(COALESCE(s.sales, 0) - COALESCE(r.refund_amount, 0), 2) AS net_sales\nFROM (\n\tSELECT SUM(i.paid_amount) AS sales\n\tFROM orders o\n\t\tJOIN order_items i ON i.order_id = o.id\n\tWHERE o.shop_id = 1\n\t\tAND o.status = 'PAID'\n\t\tAND o.paid_at >= '2026-10-01'\n\t\tAND o.paid_at < '2026-11-01'\n) s\n\tCROSS JOIN (\n\t\tSELECT SUM(rf.amount) AS refund_amount\n\t\tFROM refunds rf\n\t\tWHERE rf.shop_id = 1\n\t\t\tAND rf.status = 'SUCCESS'\n\t\t\tAND rf.succeeded_at >= '2026-10-01'\n\t\t\tAND rf.succeeded_at < '2026-11-01'\n\t) r",
+            "result_json": "{\"sql\":\"SELECT ROUND(COALESCE(s.sales, 0) - COALESCE(r.refund_amount, 0), 2) AS net_sales\\nFROM (\\n\\tSELECT SUM(i.paid_amount) AS sales\\n\\tFROM orders o\\n\\t\\tJOIN order_items i ON i.order_id = o.id\\n\\tWHERE o.shop_id = 1\\n\\t\\tAND o.status = 'PAID'\\n\\t\\tAND o.paid_at >= '2026-10-01'\\n\\t\\tAND o.paid_at < '2026-11-01'\\n) s\\n\\tCROSS JOIN (\\n\\t\\tSELECT SUM(rf.amount) AS refund_amount\\n\\t\\tFROM refunds rf\\n\\t\\tWHERE rf.shop_id = 1\\n\\t\\t\\tAND rf.status = 'SUCCESS'\\n\\t\\t\\tAND rf.succeeded_at >= '2026-10-01'\\n\\t\\t\\tAND rf.succeeded_at < '2026-11-01'\\n\\t) r\",\"columns\":[\"net_sales\"],\"rows\":[{\"net_sales\":7843.24}],\"truncated\":false,\"elapsedMs\":11}",
+            "elapsed_ms": 11,
+            "created_at": "2026-11-13T01:40:08.653+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "计算上个月（2026-10）净销售额：销售额按支付时间归属，退款按成功时间归属，分别聚合后相减",
+              "sql": "SELECT ROUND(COALESCE(s.sales,0) - COALESCE(r.refund_amount,0),2) AS net_sales FROM (SELECT SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.shop_id=1 AND o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01') s CROSS JOIN (SELECT SUM(rf.amount) AS refund_amount FROM refunds rf WHERE rf.shop_id=1 AND rf.status='SUCCESS' AND rf.succeeded_at>='2026-10-01' AND rf.succeeded_at<'2026-11-01') r"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）期间，按支付时间统计的销售额减去按退款成功时间统计的成功退款金额后，净销售额为 7843.24。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "净销售额为正，可能表明该月销售额高于同期成功退款金额；但查询结果未分别返回销售额与退款金额，无法核对两者构成，需要验证。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回净销售额单一数值，未展示销售额与退款金额的各自金额，无法确认扣减构成。",
+            "本次结果未按品类或订单维度拆分，无法判断净销售额的分布情况。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": [
+                "净销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT (SELECT COALESCE(SUM(oi.paid_amount),0) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01') - (SELECT COALESCE(SUM(r.amount),0) FROM refunds r WHERE r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01') AS net_sales",
+        "rows": [
+          {
+            "net_sales": "7843.24"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1201,
+          "completion_tokens": 122,
+          "total_tokens": 1323,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 177
+        },
+        "costCnyConservative": "0.0040536",
+        "elapsedSeconds": 1.206,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q12",
+      "question": "比较2026年9月、10月销售额，逐月返回 month（YYYY-MM）、sales。",
+      "goldenSql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month,ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01' GROUP BY month ORDER BY month",
+      "expected": [
+        {
+          "month": "2026-09",
+          "sales": "9433.50"
+        },
+        {
+          "month": "2026-10",
+          "sales": "8441.50"
+        }
+      ],
+      "agent": {
+        "taskId": "21631a74-4315-4bcf-b403-8b8964bf98d6",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.328,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.05264,
+            "charged_cny": 0.004325,
+            "input_tokens": 1126,
+            "output_tokens": 169,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050652,
+            "charged_cny": 0.004042,
+            "input_tokens": 984,
+            "output_tokens": 175,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 34,
+            "sql_text": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month\n\t, ROUND(SUM(i.paid_amount), 2) AS sales\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-09-01'\n\tAND o.paid_at < '2026-11-01'\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\nORDER BY month",
+            "result_json": "{\"sql\":\"SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month\\n\\t, ROUND(SUM(i.paid_amount), 2) AS sales\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-09-01'\\n\\tAND o.paid_at < '2026-11-01'\\nGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\\nORDER BY month\",\"columns\":[\"month\",\"sales\"],\"rows\":[{\"month\":\"2026-09\",\"sales\":9433.50},{\"month\":\"2026-10\",\"sales\":8441.50}],\"truncated\":false,\"elapsedMs\":14}",
+            "elapsed_ms": 14,
+            "created_at": "2026-11-13T01:40:13.971+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-09-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "按支付月份统计2026年9月与10月销售额（仅PAID订单，按明细paid_amount求和）",
+              "sql": "SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS month, ROUND(SUM(i.paid_amount),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.shop_id=1 AND o.status='PAID' AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01' GROUP BY DATE_FORMAT(o.paid_at,'%Y-%m') ORDER BY month"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年9月销售额为9433.50，10月销售额为8441.50，均为金额口径。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "按销售额数值比较，2026年10月比2026年9月低992.00（9433.50-8441.50）。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "10月销售额低于9月，可能与季节性需求变化、促销活动减少或商品结构变化有关，需要结合流量、转化率、客单价和品类明细进一步验证。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回2行且未截断，但未提供订单数、客单价、退款等辅助指标，无法判断销售额变化的具体驱动因素。",
+            "未确认9月与10月是否存在跨期退款影响净销售额口径。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-09-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS month, SUM(oi.paid_amount) AS sales FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-09-01' AND o.paid_at < '2026-11-01' GROUP BY DATE_FORMAT(o.paid_at, '%Y-%m') ORDER BY month",
+        "rows": [
+          {
+            "month": "2026-09",
+            "sales": "9433.50"
+          },
+          {
+            "month": "2026-10",
+            "sales": "8441.50"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1199,
+          "completion_tokens": 100,
+          "total_tokens": 1299,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 175
+        },
+        "costCnyConservative": "0.0038376",
+        "elapsedSeconds": 2.805,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q13",
+      "question": "2026年11月1日到12日的支付订单数是多少？结果列 paid_orders。",
+      "goldenSql": "SELECT COUNT(DISTINCT id) AS paid_orders FROM orders WHERE status='PAID' AND paid_at>='2026-11-01' AND paid_at<'2026-11-13'",
+      "expected": [
+        {
+          "paid_orders": "0"
+        }
+      ],
+      "agent": {
+        "taskId": "05466f19-ee59-4f4f-a31f-642bbf4769dc",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.33,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052637,
+            "charged_cny": 0.003951,
+            "input_tokens": 1126,
+            "output_tokens": 130,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050163,
+            "charged_cny": 0.003922,
+            "input_tokens": 906,
+            "output_tokens": 182,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 35,
+            "sql_text": "SELECT COUNT(DISTINCT o.id) AS paid_orders\nFROM orders o\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-11-01'\n\tAND o.paid_at < '2026-11-13'",
+            "result_json": "{\"sql\":\"SELECT COUNT(DISTINCT o.id) AS paid_orders\\nFROM orders o\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-11-01'\\n\\tAND o.paid_at < '2026-11-13'\",\"columns\":[\"paid_orders\"],\"rows\":[{\"paid_orders\":0}],\"truncated\":false,\"elapsedMs\":6}",
+            "elapsed_ms": 6,
+            "created_at": "2026-11-13T01:40:21.565+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-11-01",
+            "endExclusive": "2026-11-13"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计2026-11-01至2026-11-12（不含13日）commerce_scope_1店铺的成功支付订单去重数",
+              "sql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-11-01' AND o.paid_at < '2026-11-13'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026-11-01 至 2026-11-12（不含 11-13）期间，店铺范围 commerce_scope_1（shop_id=1）且状态为 PAID 的支付订单数（去重 orders.id）为 0。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "支付订单数为 0 可能源于该期间确实无支付订单，也可能源于 shop_id=1 与 commerce_scope_1 的映射不符或数据尚未同步，需要业务侧核实店铺范围映射与数据完整性。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回 1 行且未截断，但未验证 shop_id=1 是否完整代表 commerce_scope_1 的全部店铺范围。",
+            "未确认该期间是否存在非 PAID 状态订单或其他店铺的支付订单。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-11-01",
+            "endExclusive": "2026-11-13"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT COUNT(DISTINCT o.id) AS paid_orders FROM orders o WHERE o.status = 'PAID' AND o.paid_at >= '2026-11-01 00:00:00' AND o.paid_at < '2026-11-13 00:00:00'",
+        "rows": [
+          {
+            "paid_orders": "0"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1199,
+          "completion_tokens": 67,
+          "total_tokens": 1266,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 175
+        },
+        "costCnyConservative": "0.0035208",
+        "elapsedSeconds": 0.908,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q14",
+      "question": "2026年11月1日到12日的平均客单价是多少？无支付订单时返回NULL，结果列 average_order。",
+      "goldenSql": "SELECT ROUND(SUM(i.paid_amount)/NULLIF(COUNT(DISTINCT o.id),0),2) AS average_order FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-11-01' AND o.paid_at<'2026-11-13'",
+      "expected": [
+        {
+          "average_order": null
+        }
+      ],
+      "agent": {
+        "taskId": "334c37f7-39e5-4063-9d8a-1cf3918f2841",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.293,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052745,
+            "charged_cny": 0.00426,
+            "input_tokens": 1135,
+            "output_tokens": 160,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050492,
+            "charged_cny": 0.00374,
+            "input_tokens": 946,
+            "output_tokens": 153,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 36,
+            "sql_text": "SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\nWHERE o.shop_id = 1\n\tAND o.status = 'PAID'\n\tAND o.paid_at >= '2026-11-01'\n\tAND o.paid_at < '2026-11-13'",
+            "result_json": "{\"sql\":\"SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\nWHERE o.shop_id = 1\\n\\tAND o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-11-01'\\n\\tAND o.paid_at < '2026-11-13'\",\"columns\":[\"average_order\"],\"rows\":[{\"average_order\":null}],\"truncated\":false,\"elapsedMs\":5}",
+            "elapsed_ms": 5,
+            "created_at": "2026-11-13T01:40:26.263+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-11-01",
+            "endExclusive": "2026-11-13"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "计算2026-11-01至2026-11-12期间销售额与支付订单数，并求平均客单价（无订单返回NULL）",
+              "sql": "SELECT ROUND(SUM(i.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0), 2) AS average_order FROM orders o JOIN order_items i ON i.order_id = o.id WHERE o.shop_id = 1 AND o.status = 'PAID' AND o.paid_at >= '2026-11-01' AND o.paid_at < '2026-11-13'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "在 2026-11-01 至 2026-11-12（不含 2026-11-13）期间，店铺 shop_id=1 且订单状态为 PAID 的订单中，按销售额除以去重支付订单数计算的平均客单价返回 NULL。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "平均客单价为 NULL 可能表示该期间没有符合条件的支付订单，导致分母为 0，因此 NULLIF 返回 NULL；需要核对订单明细确认。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回 1 行且未截断，但未提供该期间支付订单数或销售额的明细，无法确认 NULL 的具体成因。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-11-01",
+            "endExclusive": "2026-11-13"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单",
+                "客单价"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT SUM(oi.paid_amount) / NULLIF(COUNT(DISTINCT o.id), 0) AS average_order FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-11-01 00:00:00' AND o.paid_at < '2026-11-13 00:00:00'",
+        "rows": [
+          {
+            "average_order": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1205,
+          "completion_tokens": 93,
+          "total_tokens": 1298,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 181
+        },
+        "costCnyConservative": "0.0037848",
+        "elapsedSeconds": 1.532,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q15",
+      "question": "上个月各品类成功退款金额是多少？按退款时间，仅列有退款品类，结果列 category、refund_amount。",
+      "goldenSql": "SELECT p.category,ROUND(SUM(r.amount),2) AS refund_amount FROM refunds r JOIN order_items i ON r.order_item_id=i.id JOIN products p ON p.id=i.product_id WHERE r.succeeded_at>='2026-10-01' AND r.succeeded_at<'2026-11-01' GROUP BY p.category ORDER BY p.category",
+      "expected": [
+        {
+          "category": "家居",
+          "refund_amount": "177.50"
+        },
+        {
+          "category": "数码",
+          "refund_amount": "216.76"
+        },
+        {
+          "category": "服饰",
+          "refund_amount": "204.00"
+        }
+      ],
+      "agent": {
+        "taskId": "2254d75f-0661-4b46-97b7-46f6ed340167",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.705,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052755,
+            "charged_cny": 0.004512,
+            "input_tokens": 1132,
+            "output_tokens": 187,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051063,
+            "charged_cny": 0.004892,
+            "input_tokens": 1002,
+            "output_tokens": 259,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 37,
+            "sql_text": "SELECT p.category AS category, ROUND(SUM(r.amount), 2) AS refund_amount\nFROM refunds r\n\tJOIN order_items i ON i.id = r.order_item_id\n\tJOIN products p ON p.id = i.product_id\nWHERE r.status = 'SUCCESS'\n\tAND r.succeeded_at >= '2026-10-01'\n\tAND r.succeeded_at < '2026-11-01'\n\tAND r.shop_id = 1\nGROUP BY p.category\nHAVING SUM(r.amount) > 0\nORDER BY refund_amount DESC",
+            "result_json": "{\"sql\":\"SELECT p.category AS category, ROUND(SUM(r.amount), 2) AS refund_amount\\nFROM refunds r\\n\\tJOIN order_items i ON i.id = r.order_item_id\\n\\tJOIN products p ON p.id = i.product_id\\nWHERE r.status = 'SUCCESS'\\n\\tAND r.succeeded_at >= '2026-10-01'\\n\\tAND r.succeeded_at < '2026-11-01'\\n\\tAND r.shop_id = 1\\nGROUP BY p.category\\nHAVING SUM(r.amount) > 0\\nORDER BY refund_amount DESC\",\"columns\":[\"category\",\"refund_amount\"],\"rows\":[{\"category\":\"数码\",\"refund_amount\":216.76},{\"category\":\"服饰\",\"refund_amount\":204.00},{\"category\":\"家居\",\"refund_amount\":177.50}],\"truncated\":false,\"elapsedMs\":6}",
+            "elapsed_ms": 6,
+            "created_at": "2026-11-13T01:40:32.035+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "按退款成功时间统计上个月（2026-10-01 至 2026-11-01）各品类成功退款金额，仅列有退款的品类",
+              "sql": "SELECT p.category AS category, ROUND(SUM(r.amount), 2) AS refund_amount FROM refunds r JOIN order_items i ON i.id = r.order_item_id JOIN products p ON p.id = i.product_id WHERE r.status = 'SUCCESS' AND r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01' AND r.shop_id = 1 GROUP BY p.category HAVING SUM(r.amount) > 0 ORDER BY refund_amount DESC"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月按退款成功时间统计，数码品类成功退款金额为216.76，在所列品类中最高。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "服饰品类成功退款金额为204.00。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "家居品类成功退款金额为177.50。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "结果共返回3个有成功退款的品类，按退款金额从高到低排列为数码、服饰、家居。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "退款金额较高的品类可能与销量基数较大或商品单价较高有关，需要结合各品类销售额与订单量验证。",
+            "数码品类退款金额居首可能与其单价较高、单笔退款金额较大有关，需要结合退款笔数验证。"
+          ],
+          "unconfirmed": [
+            "本次结果仅覆盖店铺范围 commerce_scope_1（shop_id=1），其他店铺的品类退款情况未确认。",
+            "结果未提供各品类的退款笔数、销售额及退款率，无法判断退款金额差异的成因。",
+            "查询结果未截断，但仅包含3个品类；是否存在退款金额为0或负数的品类未在结果中体现，不影响有退款品类的金额结论。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.category AS category, SUM(r.amount) AS refund_amount FROM refunds r JOIN order_items oi ON oi.id = r.order_item_id JOIN products p ON p.id = oi.product_id WHERE r.status = 'SUCCESS' AND r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01' GROUP BY p.category HAVING SUM(r.amount) > 0 ORDER BY refund_amount DESC",
+        "rows": [
+          {
+            "category": "数码",
+            "refund_amount": "216.76"
+          },
+          {
+            "category": "服饰",
+            "refund_amount": "204.00"
+          },
+          {
+            "category": "家居",
+            "refund_amount": "177.50"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1205,
+          "completion_tokens": 103,
+          "total_tokens": 1308,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 181
+        },
+        "costCnyConservative": "0.0038808",
+        "elapsedSeconds": 1.744,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q16",
+      "question": "上个月成功退款的外部退款单数是多少？按成功时间去重，结果列 refund_count。",
+      "goldenSql": "SELECT COUNT(DISTINCT refund_no) AS refund_count FROM refunds WHERE succeeded_at>='2026-10-01' AND succeeded_at<'2026-11-01'",
+      "expected": [
+        {
+          "refund_count": "10"
+        }
+      ],
+      "agent": {
+        "taskId": "3d139da8-d881-4470-9ba8-d3c81d958679",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.089,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052697,
+            "charged_cny": 0.004198,
+            "input_tokens": 1125,
+            "output_tokens": 156,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050398,
+            "charged_cny": 0.003725,
+            "input_tokens": 924,
+            "output_tokens": 157,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 38,
+            "sql_text": "SELECT COUNT(DISTINCT r.refund_no) AS refund_count\nFROM refunds r\n\tJOIN shops s ON s.id = r.shop_id\nWHERE s.name = 'commerce_scope_1'\n\tAND r.status = 'SUCCESS'\n\tAND r.succeeded_at >= '2026-10-01'\n\tAND r.succeeded_at < '2026-11-01'",
+            "result_json": "{\"sql\":\"SELECT COUNT(DISTINCT r.refund_no) AS refund_count\\nFROM refunds r\\n\\tJOIN shops s ON s.id = r.shop_id\\nWHERE s.name = 'commerce_scope_1'\\n\\tAND r.status = 'SUCCESS'\\n\\tAND r.succeeded_at >= '2026-10-01'\\n\\tAND r.succeeded_at < '2026-11-01'\",\"columns\":[\"refund_count\"],\"rows\":[{\"refund_count\":0}],\"truncated\":false,\"elapsedMs\":8}",
+            "elapsed_ms": 8,
+            "created_at": "2026-11-13T01:40:37.622+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计上个月（2026-10-01 至 2026-10-31）成功退款的外部退款单数，按 refund_no 去重，限定店铺 commerce_scope_1",
+              "sql": "SELECT COUNT(DISTINCT r.refund_no) AS refund_count FROM refunds r JOIN shops s ON s.id = r.shop_id WHERE s.name = 'commerce_scope_1' AND r.status = 'SUCCESS' AND r.succeeded_at >= '2026-10-01' AND r.succeeded_at < '2026-11-01'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "在 2026-10-01 至 2026-10-31（不含 2026-11-01）期间，店铺 commerce_scope_1 的成功退款去重外部退款单数 refund_count 为 0。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "退款单数为 0 可能反映该店铺上月确实没有成功退款，也可能与店铺名称匹配、退款状态取值或成功时间记录方式有关，需要结合业务数据进一步验证。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回 1 行且未截断，但未核对退款状态取值是否完整覆盖所有成功状态，也未验证店铺名称 commerce_scope_1 与实际店铺记录的匹配完整性。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": false
+      },
+      "baseline": {
+        "sql": "SELECT COUNT(DISTINCT refund_no) AS refund_count FROM refunds WHERE status = 'SUCCESS' AND succeeded_at >= '2026-10-01' AND succeeded_at < '2026-11-01'",
+        "rows": [
+          {
+            "refund_count": "10"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1198,
+          "completion_tokens": 49,
+          "total_tokens": 1247,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 174
+        },
+        "costCnyConservative": "0.0033456",
+        "elapsedSeconds": 1.3,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q17",
+      "question": "上个月各品类已支付商品件数是多少？仅列有销售品类，结果列 category、units。",
+      "goldenSql": "SELECT p.category,SUM(i.quantity) AS units FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category",
+      "expected": [
+        {
+          "category": "家居",
+          "units": "29"
+        },
+        {
+          "category": "数码",
+          "units": "14"
+        },
+        {
+          "category": "服饰",
+          "units": "14"
+        }
+      ],
+      "agent": {
+        "taskId": "23675f0e-6d98-4701-8e69-ecb9d5f0b0e5",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.332,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.0527,
+            "charged_cny": 0.004532,
+            "input_tokens": 1128,
+            "output_tokens": 190,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050924,
+            "charged_cny": 0.005127,
+            "input_tokens": 996,
+            "output_tokens": 285,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 39,
+            "sql_text": "SELECT p.category AS category, SUM(i.quantity) AS units\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\n\tJOIN products p ON p.id = i.product_id\nWHERE o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'\n\tAND o.shop_id = 1\n\tAND i.shop_id = 1\n\tAND p.shop_id = 1\nGROUP BY p.category\nHAVING SUM(i.quantity) > 0\nORDER BY units DESC",
+            "result_json": "{\"sql\":\"SELECT p.category AS category, SUM(i.quantity) AS units\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\n\\tJOIN products p ON p.id = i.product_id\\nWHERE o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\\n\\tAND o.shop_id = 1\\n\\tAND i.shop_id = 1\\n\\tAND p.shop_id = 1\\nGROUP BY p.category\\nHAVING SUM(i.quantity) > 0\\nORDER BY units DESC\",\"columns\":[\"category\",\"units\"],\"rows\":[{\"category\":\"家居\",\"units\":29},{\"category\":\"数码\",\"units\":14},{\"category\":\"服饰\",\"units\":14}],\"truncated\":false,\"elapsedMs\":14}",
+            "elapsed_ms": 14,
+            "created_at": "2026-11-13T01:40:42.472+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计上个月（2026-10-01 至 2026-10-31）各品类已支付商品件数，仅列有销售的品类",
+              "sql": "SELECT p.category AS category, SUM(i.quantity) AS units FROM orders o JOIN order_items i ON i.order_id = o.id JOIN products p ON p.id = i.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' AND o.shop_id = 1 AND i.shop_id = 1 AND p.shop_id = 1 GROUP BY p.category HAVING SUM(i.quantity) > 0 ORDER BY units DESC"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围内已支付订单中，家居品类商品件数合计为 29 件，位列第一。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期数码品类已支付商品件数为 14 件。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期服饰品类已支付商品件数为 14 件，与数码并列。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "结果共返回 3 个品类，未发生截断，且均满足件数大于 0 的筛选条件。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "家居品类件数明显高于数码和服饰，可能与家居商品单价较低、单笔购买件数较多或促销活动有关，需要结合商品价格与订单明细进一步验证。",
+            "数码与服饰件数相同可能为巧合，也可能反映两类商品需求规模相近，需要更多周期数据验证。"
+          ],
+          "unconfirmed": [
+            "未确认是否存在已支付但商品件数为 0 或负数的异常明细，因查询已用 HAVING 过滤。",
+            "未确认各品类件数是否受退款影响，本查询仅统计已支付订单商品件数，未扣除退款。",
+            "未确认其他店铺或未支付订单的情况，本次仅覆盖指定店铺范围。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.category AS category, SUM(oi.quantity) AS units FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' GROUP BY p.category HAVING SUM(oi.quantity) > 0 ORDER BY units DESC",
+        "rows": [
+          {
+            "category": "家居",
+            "units": "29"
+          },
+          {
+            "category": "数码",
+            "units": "14"
+          },
+          {
+            "category": "服饰",
+            "units": "14"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1201,
+          "completion_tokens": 101,
+          "total_tokens": 1302,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 177
+        },
+        "costCnyConservative": "0.0038520",
+        "elapsedSeconds": 1.79,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q18",
+      "question": "2026年10月相比9月的销售额环比增长率是多少？结果列 growth_rate，保留6位小数。",
+      "goldenSql": "SELECT ROUND((SUM(CASE WHEN o.paid_at>='2026-10-01' THEN i.paid_amount ELSE 0 END)-SUM(CASE WHEN o.paid_at<'2026-10-01' THEN i.paid_amount ELSE 0 END))/NULLIF(SUM(CASE WHEN o.paid_at<'2026-10-01' THEN i.paid_amount ELSE 0 END),0),6) AS growth_rate FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01'",
+      "expected": [
+        {
+          "growth_rate": "-0.105157"
+        }
+      ],
+      "agent": {
+        "taskId": "539b2ea4-9875-4646-bc76-e79f152d3258",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.32,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.0527,
+            "charged_cny": 0.005367,
+            "input_tokens": 1128,
+            "output_tokens": 277,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051555,
+            "charged_cny": 0.004678,
+            "input_tokens": 1141,
+            "output_tokens": 202,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 40,
+            "sql_text": "SELECT ROUND((SUM(CASE \n\t\tWHEN m = '2026-10' THEN sales\n\tEND) - SUM(CASE \n\t\tWHEN m = '2026-09' THEN sales\n\tEND)) * 1.000000 / NULLIF(SUM(CASE \n\t\tWHEN m = '2026-09' THEN sales\n\tEND), 0), 6) AS growth_rate\n\t, SUM(CASE \n\t\tWHEN m = '2026-09' THEN sales\n\tEND) AS sep_sales\n\t, SUM(CASE \n\t\tWHEN m = '2026-10' THEN sales\n\tEND) AS oct_sales\nFROM (\n\tSELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS m, SUM(i.paid_amount) AS sales\n\tFROM orders o\n\t\tJOIN order_items i ON i.order_id = o.id\n\tWHERE o.status = 'PAID'\n\t\tAND o.shop_id = 1\n\t\tAND o.paid_at >= '2026-09-01'\n\t\tAND o.paid_at < '2026-11-01'\n\tGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\n) t",
+            "result_json": "{\"sql\":\"SELECT ROUND((SUM(CASE \\n\\t\\tWHEN m = '2026-10' THEN sales\\n\\tEND) - SUM(CASE \\n\\t\\tWHEN m = '2026-09' THEN sales\\n\\tEND)) * 1.000000 / NULLIF(SUM(CASE \\n\\t\\tWHEN m = '2026-09' THEN sales\\n\\tEND), 0), 6) AS growth_rate\\n\\t, SUM(CASE \\n\\t\\tWHEN m = '2026-09' THEN sales\\n\\tEND) AS sep_sales\\n\\t, SUM(CASE \\n\\t\\tWHEN m = '2026-10' THEN sales\\n\\tEND) AS oct_sales\\nFROM (\\n\\tSELECT DATE_FORMAT(o.paid_at, '%Y-%m') AS m, SUM(i.paid_amount) AS sales\\n\\tFROM orders o\\n\\t\\tJOIN order_items i ON i.order_id = o.id\\n\\tWHERE o.status = 'PAID'\\n\\t\\tAND o.shop_id = 1\\n\\t\\tAND o.paid_at >= '2026-09-01'\\n\\t\\tAND o.paid_at < '2026-11-01'\\n\\tGROUP BY DATE_FORMAT(o.paid_at, '%Y-%m')\\n) t\",\"columns\":[\"growth_rate\",\"sep_sales\",\"oct_sales\"],\"rows\":[{\"growth_rate\":-0.105157,\"sep_sales\":9433.50,\"oct_sales\":8441.50}],\"truncated\":false,\"elapsedMs\":8}",
+            "elapsed_ms": 8,
+            "created_at": "2026-11-13T01:40:49.072+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-09-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "按支付月份统计2026年9月与10月销售额，并计算10月相对9月的环比增长率（分母为0返回NULL）",
+              "sql": "SELECT ROUND((SUM(CASE WHEN m='2026-10' THEN sales END) - SUM(CASE WHEN m='2026-09' THEN sales END)) * 1.000000 / NULLIF(SUM(CASE WHEN m='2026-09' THEN sales END),0), 6) AS growth_rate, SUM(CASE WHEN m='2026-09' THEN sales END) AS sep_sales, SUM(CASE WHEN m='2026-10' THEN sales END) AS oct_sales FROM (SELECT DATE_FORMAT(o.paid_at,'%Y-%m') AS m, SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.shop_id=1 AND o.paid_at>='2026-09-01' AND o.paid_at<'2026-11-01' GROUP BY DATE_FORMAT(o.paid_at,'%Y-%m')) t"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年9月销售额为9433.50，2026年10月销售额为8441.50，10月较9月减少992.00。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "2026年10月相比9月的销售额环比增长率为-0.105157，即下降约10.52%。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "销售额环比下降可能与10月支付订单数减少、客单价下降或部分品类需求走弱有关，需结合订单数、客单价及品类明细进一步验证。",
+            "可能存在退款或促销节奏差异影响实付金额，需核对退款与活动数据验证。"
+          ],
+          "unconfirmed": [
+            "本次结果仅返回1行汇总，未提供分品类、分店铺或订单级明细，无法确认下滑的具体来源。",
+            "未确认9月至10月支付订单数与客单价的变化情况。",
+            "未确认是否存在跨期退款或其他口径差异对销售额的影响。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-09-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT ROUND((SUM(CASE WHEN o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' THEN oi.paid_amount ELSE 0 END) - SUM(CASE WHEN o.paid_at >= '2026-09-01' AND o.paid_at < '2026-10-01' THEN oi.paid_amount ELSE 0 END)) / NULLIF(SUM(CASE WHEN o.paid_at >= '2026-09-01' AND o.paid_at < '2026-10-01' THEN oi.paid_amount ELSE 0 END), 0), 6) AS growth_rate FROM orders o JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-09-01' AND o.paid_at < '2026-11-01'",
+        "rows": [
+          {
+            "growth_rate": "-0.105157"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1201,
+          "completion_tokens": 200,
+          "total_tokens": 1401,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 177
+        },
+        "costCnyConservative": "0.0048024",
+        "elapsedSeconds": 1.464,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q19",
+      "question": "上个月新品品类销售额是多少？没有支付记录按0统计，结果列 sales。",
+      "goldenSql": "SELECT ROUND(COALESCE(SUM(i.paid_amount),0),2) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' AND p.category='新品'",
+      "expected": [
+        {
+          "sales": "0.00"
+        }
+      ],
+      "agent": {
+        "taskId": "443fe90b-3c04-4da4-b35d-9ecdd7c80213",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 3.71,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052668,
+            "charged_cny": 0.004366,
+            "input_tokens": 1123,
+            "output_tokens": 174,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.050729,
+            "charged_cny": 0.003917,
+            "input_tokens": 980,
+            "output_tokens": 163,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 41,
+            "sql_text": "SELECT ROUND(COALESCE(SUM(s.sales), 0), 2) AS sales\nFROM products p\n\tLEFT JOIN (\n\t\tSELECT i.product_id, SUM(i.paid_amount) AS sales\n\t\tFROM orders o\n\t\t\tJOIN order_items i ON i.order_id = o.id\n\t\tWHERE o.status = 'PAID'\n\t\t\tAND o.paid_at >= '2026-10-01'\n\t\t\tAND o.paid_at < '2026-11-01'\n\t\tGROUP BY i.product_id\n\t) s\n\tON s.product_id = p.id\nWHERE p.category = '新品'",
+            "result_json": "{\"sql\":\"SELECT ROUND(COALESCE(SUM(s.sales), 0), 2) AS sales\\nFROM products p\\n\\tLEFT JOIN (\\n\\t\\tSELECT i.product_id, SUM(i.paid_amount) AS sales\\n\\t\\tFROM orders o\\n\\t\\t\\tJOIN order_items i ON i.order_id = o.id\\n\\t\\tWHERE o.status = 'PAID'\\n\\t\\t\\tAND o.paid_at >= '2026-10-01'\\n\\t\\t\\tAND o.paid_at < '2026-11-01'\\n\\t\\tGROUP BY i.product_id\\n\\t) s\\n\\tON s.product_id = p.id\\nWHERE p.category = '新品'\",\"columns\":[\"sales\"],\"rows\":[{\"sales\":0.00}],\"truncated\":false,\"elapsedMs\":7}",
+            "elapsed_ms": 7,
+            "created_at": "2026-11-13T01:40:54.606+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "统计上个月（2026-10-01 至 2026-10-31）新品品类销售额，无支付记录返回0",
+              "sql": "SELECT ROUND(COALESCE(SUM(s.sales),0),2) AS sales FROM products p LEFT JOIN (SELECT i.product_id, SUM(i.paid_amount) AS sales FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY i.product_id) s ON s.product_id=p.id WHERE p.category='新品'"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）新品品类的销售额为 0.00。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "新品品类在2026年10月可能确实没有已支付订单，或相关订单状态不是 PAID，需要结合订单明细进一步验证。",
+            "可能是商品分类字段中不存在“新品”这一取值，或该分类下没有商品，需要核对 products.category 的实际分布。"
+          ],
+          "unconfirmed": [
+            "查询结果仅返回1行汇总值，未提供新品品类下的商品数量、订单数或明细，无法确认销售额为0的具体原因。",
+            "未确认是否存在未支付、已取消或退款订单影响该品类销售表现。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "销售"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT COALESCE(SUM(oi.paid_amount), 0) AS sales FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' AND p.category = '新品'",
+        "rows": [
+          {
+            "sales": "0.00"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1196,
+          "completion_tokens": 91,
+          "total_tokens": 1287,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 172
+        },
+        "costCnyConservative": "0.0037440",
+        "elapsedSeconds": 1.422,
+        "matchesGolden": true
+      }
+    },
+    {
+      "id": "Q20",
+      "question": "上个月各品类订单退款率是多少？仅列有支付订单的品类，截至参考日期，结果列 category、refund_rate，保留6位小数。",
+      "goldenSql": "SELECT p.category,ROUND(1.000000*COUNT(DISTINCT CASE WHEN EXISTS(SELECT 1 FROM refunds r WHERE r.order_item_id=i.id AND r.succeeded_at<'2026-11-14') THEN o.id END)/NULLIF(COUNT(DISTINCT o.id),0),6) AS refund_rate FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at>='2026-10-01' AND o.paid_at<'2026-11-01' GROUP BY p.category ORDER BY p.category",
+      "expected": [
+        {
+          "category": "家居",
+          "refund_rate": "0.137931"
+        },
+        {
+          "category": "数码",
+          "refund_rate": "0.142857"
+        },
+        {
+          "category": "服饰",
+          "refund_rate": "0.142857"
+        }
+      ],
+      "agent": {
+        "taskId": "6620e1ee-ed3f-4632-a93e-db475cd97acd",
+        "status": "SUCCEEDED",
+        "error": null,
+        "elapsedSeconds": 4.956,
+        "calls": [
+          {
+            "purpose": "plan",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.052877,
+            "charged_cny": 0.005458,
+            "input_tokens": 1146,
+            "output_tokens": 282,
+            "status": "COMPLETED"
+          },
+          {
+            "purpose": "report",
+            "model": "deepseek-flash",
+            "reserved_cny": 0.051963,
+            "charged_cny": 0.005504,
+            "input_tokens": 1161,
+            "output_tokens": 283,
+            "status": "COMPLETED"
+          }
+        ],
+        "evidence": [
+          {
+            "id": 42,
+            "sql_text": "SELECT p.category\n\t, ROUND(COUNT(DISTINCT CASE \n\t\tWHEN EXISTS (\n\t\t\t\tSELECT 1\n\t\t\t\tFROM order_items i2\n\t\t\t\t\tJOIN refunds r ON r.order_item_id = i2.id\n\t\t\t\tWHERE i2.order_id = o.id\n\t\t\t\t\tAND i2.product_id = p.id\n\t\t\t\t\tAND r.status = 'SUCCESS'\n\t\t\t\t\tAND r.succeeded_at < '2026-11-14'\n\t\t\t)\n\t\tTHEN o.id\n\tEND) * 1.000000 / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate\nFROM orders o\n\tJOIN order_items i ON i.order_id = o.id\n\tJOIN products p ON p.id = i.product_id\nWHERE o.status = 'PAID'\n\tAND o.paid_at >= '2026-10-01'\n\tAND o.paid_at < '2026-11-01'\n\tAND o.shop_id = 1\nGROUP BY p.category\nHAVING COUNT(DISTINCT o.id) > 0\nORDER BY p.category",
+            "result_json": "{\"sql\":\"SELECT p.category\\n\\t, ROUND(COUNT(DISTINCT CASE \\n\\t\\tWHEN EXISTS (\\n\\t\\t\\t\\tSELECT 1\\n\\t\\t\\t\\tFROM order_items i2\\n\\t\\t\\t\\t\\tJOIN refunds r ON r.order_item_id = i2.id\\n\\t\\t\\t\\tWHERE i2.order_id = o.id\\n\\t\\t\\t\\t\\tAND i2.product_id = p.id\\n\\t\\t\\t\\t\\tAND r.status = 'SUCCESS'\\n\\t\\t\\t\\t\\tAND r.succeeded_at < '2026-11-14'\\n\\t\\t\\t)\\n\\t\\tTHEN o.id\\n\\tEND) * 1.000000 / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate\\nFROM orders o\\n\\tJOIN order_items i ON i.order_id = o.id\\n\\tJOIN products p ON p.id = i.product_id\\nWHERE o.status = 'PAID'\\n\\tAND o.paid_at >= '2026-10-01'\\n\\tAND o.paid_at < '2026-11-01'\\n\\tAND o.shop_id = 1\\nGROUP BY p.category\\nHAVING COUNT(DISTINCT o.id) > 0\\nORDER BY p.category\",\"columns\":[\"category\",\"refund_rate\"],\"rows\":[{\"category\":\"家居\",\"refund_rate\":0.137931},{\"category\":\"数码\",\"refund_rate\":0.142857},{\"category\":\"服饰\",\"refund_rate\":0.142857}],\"truncated\":false,\"elapsedMs\":12}",
+            "elapsed_ms": 12,
+            "created_at": "2026-11-13T01:41:00.161+00:00"
+          }
+        ],
+        "plan": {
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "steps": [
+            {
+              "tool": "SQL",
+              "purpose": "计算上个月（2026-10）各品类支付订单退款率：分母为该品类支付订单去重数，分子为截至分析时点2026-11-13存在成功退款的去重订单数，仅列有支付订单的品类",
+              "sql": "SELECT p.category, ROUND(COUNT(DISTINCT CASE WHEN EXISTS (SELECT 1 FROM order_items i2 JOIN refunds r ON r.order_item_id=i2.id WHERE i2.order_id=o.id AND i2.product_id=p.id AND r.status='SUCCESS' AND r.succeeded_at < '2026-11-14') THEN o.id END) * 1.000000 / NULLIF(COUNT(DISTINCT o.id),0), 6) AS refund_rate FROM orders o JOIN order_items i ON i.order_id=o.id JOIN products p ON p.id=i.product_id WHERE o.status='PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' AND o.shop_id = 1 GROUP BY p.category HAVING COUNT(DISTINCT o.id) > 0 ORDER BY p.category"
+            }
+          ]
+        },
+        "report": {
+          "observations": [
+            {
+              "text": "2026年10月（2026-10-01 至 2026-10-31）店铺范围内，家居品类订单退款率为 0.137931。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期数码品类订单退款率为 0.142857。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "同期服饰品类订单退款率为 0.142857。",
+              "evidence": [
+                1
+              ]
+            },
+            {
+              "text": "结果共返回 3 个品类，均满足有支付订单的条件，且结果未被截断。",
+              "evidence": [
+                1
+              ]
+            }
+          ],
+          "hypotheses": [
+            "数码与服饰退款率相同（均为 0.142857），可能源于相同分母或巧合，需核对各品类支付订单数与退款订单数后验证。",
+            "家居退款率略低于数码和服饰，可能与品类特性或商品质量差异有关，缺少业务证据，需要验证。"
+          ],
+          "unconfirmed": [
+            "各品类支付订单数与退款订单的绝对数量未在结果中提供，无法判断退款率差异的样本量基础。",
+            "退款率仅统计截至 2026-11-13 已成功退款（succeeded_at < 2026-11-14）的订单，之后发生的退款未纳入，最终退款率可能变化。",
+            "结果仅覆盖店铺范围 commerce_scope_1，其他店铺或全平台情况未确认。"
+          ],
+          "metricVersion": "1.0",
+          "referenceDate": "2026-11-13",
+          "dateRange": {
+            "start": "2026-10-01",
+            "endExclusive": "2026-11-01"
+          },
+          "knowledge": [
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "sales",
+                "name": "销售额",
+                "aliases": [
+                  "销售",
+                  "营收",
+                  "实付",
+                  "收入"
+                ],
+                "version": "1.0",
+                "definition": "SUM(order_items.paid_amount)，仅 orders.status='PAID'，关联订单和明细。金额不乘 quantity，paid_amount 已为明细实付合计。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_amount",
+                "name": "退款金额",
+                "aliases": [
+                  "退款",
+                  "退货"
+                ],
+                "version": "1.0",
+                "definition": "SUM(refunds.amount)，refunds 视图已按 refund_no 去重且仅含成功退款；每次成功的部分退款分别计入。",
+                "timeBasis": "refunds.succeeded_at"
+              },
+              "matchedAliases": [
+                "退款"
+              ]
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "refund_rate",
+                "name": "订单退款率",
+                "aliases": [
+                  "退款率",
+                  "退货率"
+                ],
+                "version": "1.0",
+                "definition": "统计期支付订单中，截至分析时点存在成功退款的去重订单数 / 同期支付订单去重数。品类维度退款必须关联该品类明细，使用 EXISTS 或先聚合退款避免 JOIN 放大。分母为零返回 NULL。",
+                "timeBasis": "支付时间划定订单队列，退款成功时间小于分析时点次日"
+              },
+              "matchedAliases": [
+                "退款率"
+              ]
+            },
+            {
+              "reason": "核心口径约束",
+              "metric": {
+                "id": "net_sales",
+                "name": "净销售额",
+                "aliases": [
+                  "净销售",
+                  "净收入"
+                ],
+                "version": "1.0",
+                "definition": "期间销售额减期间成功退款金额，分别按支付时间和退款成功时间归属。跨期退款会使该指标与支付队列净额不同。",
+                "timeBasis": "期间现金流口径"
+              },
+              "matchedAliases": []
+            },
+            {
+              "reason": "名称或别名匹配",
+              "metric": {
+                "id": "paid_orders",
+                "name": "支付订单数",
+                "aliases": [
+                  "订单",
+                  "客单价"
+                ],
+                "version": "1.0",
+                "definition": "COUNT(DISTINCT orders.id)，仅成功支付订单；客单价=销售额/NULLIF(支付订单数,0)。",
+                "timeBasis": "orders.paid_at"
+              },
+              "matchedAliases": [
+                "订单"
+              ]
+            }
+          ],
+          "model": "deepseek-flash"
+        },
+        "matchesGolden": true
+      },
+      "baseline": {
+        "sql": "SELECT p.category AS category, ROUND(COUNT(DISTINCT CASE WHEN r.order_id IS NOT NULL THEN o.id END) / NULLIF(COUNT(DISTINCT o.id), 0), 6) AS refund_rate FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id LEFT JOIN (SELECT DISTINCT oi2.order_id FROM refunds rf JOIN order_items oi2 ON oi2.id = rf.order_item_id WHERE rf.status = 'SUCCESS' AND rf.succeeded_at < '2026-11-14') r ON r.order_id = o.id WHERE o.status = 'PAID' AND o.paid_at >= '2026-10-01' AND o.paid_at < '2026-11-01' GROUP BY p.category HAVING COUNT(DISTINCT o.id) > 0",
+        "rows": [
+          {
+            "category": "家居",
+            "refund_rate": "0.2069"
+          },
+          {
+            "category": "数码",
+            "refund_rate": "0.2857"
+          },
+          {
+            "category": "服饰",
+            "refund_rate": "0.1429"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1212,
+          "completion_tokens": 191,
+          "total_tokens": 1403,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "prompt_cache_hit_tokens": 1024,
+          "prompt_cache_miss_tokens": 188
+        },
+        "costCnyConservative": "0.0047424",
+        "elapsedSeconds": 1.712,
+        "matchesGolden": false
+      }
+    }
+  ],
+  "summary": {
+    "count": 20,
+    "agentCorrect": 19,
+    "baselineCorrect": 17,
+    "budget": {
+      "committed_cny": "0.570327",
+      "limit_cny": "18.000000"
+    }
+  }
+}

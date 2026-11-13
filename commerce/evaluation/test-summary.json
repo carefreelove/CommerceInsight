@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-13",
+  "backend": {
+    "tests": 1759,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "commerceTests": [
+    {
+      "class": "com.carefreelove.commerce.CommerceDomainTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "com.carefreelove.commerce.CommerceFailureIntegrationTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "com.carefreelove.commerce.CommerceIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "com.carefreelove.commerce.SqlGuardTest",
+      "tests": 32,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "backendSourceSha256": "d5f08060e27aa3b43de4add9a51a65abb7a2c25a72510646b5a9602492ed5b71",
+  "frontend": {
+    "tests": 21,
+    "failures": 0,
+    "testFiles": 8,
+    "build": "passed"
+  },
+  "apiSmoke": {
+    "checks": 27,
+    "failures": 0
+  },
+  "backendCommands": [
+    "CI_INTEGRATION=true ./mvnw -B -s commerce/maven-settings.xml -pl data-agent-management -Dspotless.skip=true test",
+    "CI_INTEGRATION=true ./mvnw -B -s commerce/maven-settings.xml -pl data-agent-management -Dspotless.skip=true -Dtest=CommerceFailureIntegrationTest test"
+  ]
+}

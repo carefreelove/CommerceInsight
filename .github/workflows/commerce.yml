@@ -1,0 +1,74 @@
+name: CommerceInsight CI
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_local_demo
+        ports: ['3308:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pci_root_local_demo"
+          --health-interval=5s --health-timeout=5s --health-retries=40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Initialize synthetic data and scoped database accounts
+        env:
+          MYSQL_PWD: ci_root_local_demo
+        run: |
+          for file in commerce/database/*.sql; do
+            mysql --default-character-set=utf8mb4 --protocol=TCP -h127.0.0.1 -P3308 -uroot < "$file"
+          done
+      - name: Unit and MySQL integration tests
+        env:
+          CI_INTEGRATION: 'true'
+        run: ./mvnw -B -s commerce/maven-settings.xml -pl data-agent-management -Dspotless.skip=true test
+      - name: Package application
+        run: ./mvnw -B -s commerce/maven-settings.xml -pl data-agent-management -Dspotless.skip=true -DskipTests package
+      - name: Session and authorization smoke tests
+        env:
+          CI_MOCK_MODEL: 'true'
+        run: |
+          java -jar data-agent-management/target/spring-ai-alibaba-data-agent-management-*.jar > /tmp/commerce-server.log 2>&1 &
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8065/api/health; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/commerce-server.log; exit 1; fi
+          python3 commerce/scripts/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: |
+            data-agent-management/target/surefire-reports
+            commerce/evaluation/smoke-results.json
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: data-agent-frontend-nuxt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable && corepack prepare pnpm@12.15.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+      - run: pnpm build

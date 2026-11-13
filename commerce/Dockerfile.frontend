@@ -1,0 +1,12 @@
+FROM node:24-alpine AS build
+WORKDIR /app
+RUN npm install -g pnpm@12.15.0
+COPY data-agent-frontend-nuxt/package.json data-agent-frontend-nuxt/pnpm-lock.yaml data-agent-frontend-nuxt/.npmrc ./
+COPY data-agent-frontend-nuxt/ ./
+RUN pnpm install --frozen-lockfile && CI_BACKEND_URL=http://backend:8065 pnpm build
+FROM node:24-alpine
+WORKDIR /app
+COPY --from=build /app/.output ./.output
+EXPOSE 3000
+ENV HOST=0.0.0.0
+ENTRYPOINT ["node", ".output/server/index.mjs"]
