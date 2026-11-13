@@ -103,6 +103,9 @@ public class SqlGuard {
         SQLUtils.parseSingleStatement(sql,DbType.mysql).accept(new SQLASTVisitorAdapter() {
             @Override
             public void preVisit(SQLObject object) {
+                if (object instanceof SQLCharExpr text && text.getText().toLowerCase(Locale.ROOT).startsWith("commerce_scope_")) {
+                    throw new IllegalArgumentException("Schema 技术标识不可作为店铺名称，店铺范围已由授权视图限定。请使用提供的真实店铺名称或移除额外店铺条件。");
+                }
                 if (object instanceof SQLSelectQueryBlock block) {
                     validateBlock(block);
                 }

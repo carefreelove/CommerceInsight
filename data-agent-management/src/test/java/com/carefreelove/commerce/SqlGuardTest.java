@@ -50,4 +50,9 @@ class SqlGuardTest {
         guard.validateAggregation("SELECT SUM(CASE WHEN o.id IS NOT NULL THEN i.paid_amount ELSE 0 END) FROM products p LEFT JOIN order_items i ON i.product_id=p.id LEFT JOIN orders o ON o.id=i.order_id AND o.paid_at>='2026-10-01'");
         guard.validateAggregation("SELECT p.category,SUM(s.sales) FROM products p LEFT JOIN (SELECT i.product_id,SUM(i.paid_amount) sales FROM orders o JOIN order_items i ON o.id=i.order_id WHERE o.status='PAID' GROUP BY i.product_id) s ON s.product_id=p.id GROUP BY p.category");
     }
+    @org.junit.jupiter.api.Test
+    void rejectsTechnicalSchemaNameAsBusinessValue() {
+        assertThatThrownBy(() -> guard.validateAggregation("SELECT COUNT(*) FROM shops WHERE name='commerce_scope_1'"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

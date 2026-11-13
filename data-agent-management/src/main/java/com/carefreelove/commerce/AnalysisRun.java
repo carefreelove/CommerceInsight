@@ -20,6 +20,7 @@ public class AnalysisRun {
     List<Map<String,Object>> knowledge=List.of();
     Map<String,Object> plan=Map.of();
     String schema;
+    Object shops;
     int calls;
     private boolean cancelled;
     private Future<?> modelRequest;

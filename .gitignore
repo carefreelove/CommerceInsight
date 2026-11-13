@@ -73,3 +73,5 @@ commerce/runtime/
 commerce/evaluation/local-*.json
 **/.nuxt/
 **/.output/
+
+**/__pycache__/

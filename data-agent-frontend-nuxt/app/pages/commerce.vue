@@ -1,114 +1,1348 @@
 <template>
-  <div v-if="user" class="workspace">
-    <aside class="sidebar">
-      <NuxtLink to="/commerce" class="brand">Commerce<span>Insight</span></NuxtLink>
-      <p class="sidebar-sub">电商经营分析平台</p>
-      <nav aria-label="主导航"><button v-for="item in navigation" :key="item.id" :class="{ active: tab === item.id }" @click="switchTab(item.id)"><span>{{ item.icon }}</span>{{ item.name }}</button></nav>
-      <div class="account"><div class="avatar">{{ user.username[0].toUpperCase() }}</div><div><strong>{{ user.username }}</strong><small>{{ user.role === 'ADMIN' ? '管理员' : '店铺分析员' }}</small></div><button aria-label="退出登录" @click="logout">退出</button></div>
-    </aside>
-    <div class="main-shell">
-      <header class="topbar"><span>{{ navigation.find(item => item.id === tab)?.name }}</span><div class="scope"><span>数据范围</span><select v-model="scope" aria-label="选择店铺" @change="scopeChanged"><option v-if="user.role === 'ADMIN'" :value="0">全部店铺</option><option v-if="user.role === 'ADMIN' || user.shopId === 1" :value="1">杭州旗舰店</option><option v-if="user.role === 'ADMIN' || user.shopId === 2" :value="2">上海精选店</option></select><span class="synthetic">模拟业务数据</span></div></header>
-      <main>
-        <p v-if="error" class="alert error" role="alert">{{ error }}<button @click="error = ''">关闭</button></p>
-        <template v-if="tab === 'overview'">
-          <div class="page-heading"><div><p class="eyebrow">经营概览</p><h1>看见数据，理解经营。</h1><p class="muted">2026 年 5 月至 10 月 · 按支付时间统计</p></div><button class="primary" @click="switchTab('analysis')">发起分析 ↗</button></div>
-          <section class="kpis"><article><p>累计实付销售额</p><strong>¥{{ money(totalSales) }}</strong><small>成功支付订单明细实付合计</small></article><article><p>成功支付订单</p><strong>{{ totalOrders }}</strong><small>按订单编号去重</small></article><article><p>平均客单价</p><strong>¥{{ money(totalOrders ? totalSales / totalOrders : 0) }}</strong><small>实付销售额 ÷ 支付订单数</small></article></section>
-          <section class="panel"><div class="panel-heading"><h2>月度销售趋势</h2><span class="muted">销售额 / 元</span></div><CommerceChart v-if="overview.length" :rows="overview" x="month" y="sales" title="月度销售趋势" line /><p v-else class="empty">正在读取经营数据…</p></section>
-          <section class="panel questions"><h2>从一个经营问题开始</h2><button v-for="question in suggestions" :key="question" @click="ask(question)">{{ question }}<span>↗</span></button></section>
-        </template>
-        <template v-if="tab === 'analysis'">
-          <div class="page-heading"><div><p class="eyebrow">分析工作台</p><h1>你的下一个经营问题？</h1><p class="muted">分析计划、执行结果和指标口径均可追溯</p></div></div>
-          <section class="panel composer"><label for="question">经营问题</label><textarea id="question" v-model="question" maxlength="2000" rows="3" placeholder="例如，比较上个月各品类的销售额和订单退款率" /><div class="composer-footer"><label>分析参考日期 <input v-model="referenceDate" type="date" min="2026-05-01" max="2030-01-01" /></label><button class="primary" :disabled="submitting || activeTask" @click="submit">{{ submitting ? '正在创建…' : '开始分析 ↗' }}</button></div></section>
-          <div class="suggestion-list"><button v-for="item in suggestions" :key="item" @click="question = item">{{ item }}</button></div>
-          <div v-if="selected" class="analysis-grid">
-            <section class="panel timeline"><div class="panel-heading"><h2>分析进度</h2><span :class="['status', selected.status.toLowerCase()]">{{ statusName(selected.status) }}</span></div><p class="muted small">{{ streamStatus }}</p><ol><li v-for="event in events" :key="event.id"><span class="event-dot" /><strong>{{ eventName(event.type) }}</strong><p>{{ eventText(event.payload) }}</p></li></ol><p v-if="!events.length" class="muted small">任务 {{ selected.id.slice(0, 8) }}，进度正在同步</p><p v-if="selected.error_message" class="error">{{ selected.error_message }}</p><button v-if="activeTask" class="secondary" @click="cancel">取消任务</button><button v-else class="secondary" @click="retry">重新分析</button></section>
-            <section class="panel report"><div class="panel-heading"><h2>分析结果与依据</h2><button v-if="report" class="text-button" @click="download">导出报告 ↓</button></div>
-              <p v-if="!report && !evidence.length" class="empty">执行结果将在这里呈现</p>
-              <div v-if="report" class="report-summary"><p class="report-meta">参考日期 {{ report.referenceDate }} · 指标版本 {{ report.metricVersion }} · {{ report.model }}</p><h3>观察结果</h3><p v-for="(observation, index) in report.observations" :key="index">{{ observation.text }} <span class="citation">依据 {{ observation.evidence.join('、') }}</span></p><template v-if="report.hypotheses?.length"><h3>待验证推断</h3><p v-for="(item, index) in report.hypotheses" :key="index">{{ item }}</p></template><template v-if="report.unconfirmed?.length"><h3>未确认事项</h3><p v-for="(item, index) in report.unconfirmed" :key="index">{{ item }}</p></template></div>
-              <article v-for="(item, index) in evidence" :key="item.id" class="evidence"><div class="panel-heading"><h3>查询依据 {{ index + 1 }}</h3><span class="muted small">{{ item.result.elapsedMs }} ms · {{ item.result.rows.length }} 行</span></div><p v-if="item.result.truncated" class="alert">结果已截断至 1000 行，当前结果存在展示限制</p><CommerceChart v-if="chartFields(item.result)" :rows="item.result.rows.slice(0, 30)" :x="chartFields(item.result)!.x" :y="chartFields(item.result)!.y" :title="'查询依据 ' + (index + 1)" /><ChatResultSet :data="tableData(item.result)" /><details><summary>查看实际执行 SQL</summary><pre>{{ item.sql_text }}</pre></details></article>
-              <details v-if="selected.plan_json" class="plan"><summary>查看分析计划与日期范围</summary><pre>{{ pretty(selected.plan_json) }}</pre></details><details v-if="selected.calls?.length"><summary>模型调用与费用记录</summary><pre>{{ pretty(selected.calls) }}</pre></details>
-            </section>
-          </div>
-        </template>
-        <template v-if="tab === 'history'">
-          <div class="page-heading"><div><p class="eyebrow">任务历史</p><h1>每次分析，都有记录。</h1><p class="muted">查看你的分析任务、结果和失败原因</p></div><button class="secondary" @click="loadHistory">刷新列表</button></div>
-          <section class="panel history"><p v-if="!history.length" class="empty">还没有分析任务</p><button v-for="task in history" :key="task.id" @click="openTask(task.id)"><div><strong>{{ task.question }}</strong><p>{{ task.created_at }} · 参考日期 {{ task.reference_date }}<span v-if="task.error_message"> · {{ task.error_message }}</span></p></div><span :class="['status', task.status.toLowerCase()]">{{ statusName(task.status) }}</span></button><div class="pager"><button :disabled="page === 0" @click="page--; loadHistory()">上一页</button><span>第 {{ page + 1 }} 页</span><button :disabled="history.length < 20" @click="page++; loadHistory()">下一页</button></div></section>
-        </template>
-        <template v-if="tab === 'metrics'">
-          <div class="page-heading"><div><p class="eyebrow">指标词典</p><h1>统一口径，才能比较。</h1><p class="muted">名称与别名检索 · 定义版本 1.0</p></div></div><section class="metric-grid"><article v-for="metric in metrics" :key="metric.id" class="panel"><span class="muted small">{{ metric.id }} · v{{ metric.version }}</span><h2>{{ metric.name }}</h2><p>{{ metric.definition }}</p><div class="metric-time">时间依据 {{ metric.timeBasis }}</div><p class="muted small">检索别名 {{ metric.aliases.join('、') }}</p></article></section>
-        </template>
-        <template v-if="tab === 'admin' && admin">
-          <div class="page-heading"><div><p class="eyebrow">管理员配置</p><h1>模型、预算与数据授权。</h1></div><button class="secondary" @click="loadAdmin">刷新配置</button></div><section class="kpis"><article><p>当前模型</p><strong class="model-name">{{ admin.model }}</strong><small>{{ admin.modelConfigured ? '凭据已配置' : '请在启动环境配置凭据' }}</small></article><article><p>已消耗及待结算预留</p><strong>¥{{ money(admin.budget.committed_cny, 4) }}</strong><small>失败且无 usage 的调用保留预留额度</small></article><article><p>本项目预算上限</p><strong>¥{{ admin.budget.limit_cny }}</strong><small>总预算 20 元，保留 2 元余量</small></article></section><section class="panel"><h2>分析员店铺授权</h2><div v-for="person in admin.users" :key="person.id" class="grant"><strong>{{ person.username }}</strong><span>{{ person.role }}</span><select v-if="person.role === 'ANALYST'" :value="person.shop_id" :aria-label="person.username + '店铺授权'" @change="grant(person.id, Number(($event.target as HTMLSelectElement).value))"><option :value="1">杭州旗舰店</option><option :value="2">上海精选店</option></select><span v-else class="muted">全部店铺</span></div><p class="muted small">模型凭据通过本地环境变量配置。店铺授权调整会影响该用户可访问的历史任务。</p></section>
-        </template>
-      </main>
-      <footer>CommerceInsight · 数据截至 2026-10-31 · 基于 DataAgent 二次开发</footer>
-    </div>
-  </div>
-  <main v-else class="loading">正在连接分析工作台…</main>
+	<div v-if="user" class="workspace">
+		<aside class="sidebar">
+			<NuxtLink to="/commerce" class="brand"
+				>Commerce<span>Insight</span></NuxtLink
+			>
+			<p class="sidebar-sub">电商经营分析平台</p>
+			<nav aria-label="主导航">
+				<button
+					v-for="item in navigation"
+					:key="item.id"
+					:class="{ active: tab === item.id }"
+					@click="switchTab(item.id)"
+				>
+					<span>{{ item.icon }}</span
+					>{{ item.name }}
+				</button>
+			</nav>
+			<div class="account">
+				<div class="avatar">{{ user.username[0].toUpperCase() }}</div>
+				<div>
+					<strong>{{ user.username }}</strong
+					><small>{{ user.role === 'ADMIN' ? '管理员' : '店铺分析员' }}</small>
+				</div>
+				<button aria-label="退出登录" @click="logout">退出</button>
+			</div>
+		</aside>
+		<div class="main-shell">
+			<header class="topbar">
+				<span>{{ navigation.find((item) => item.id === tab)?.name }}</span>
+				<div class="scope">
+					<span>数据范围</span
+					><select v-model="scope" aria-label="选择店铺" @change="scopeChanged">
+						<option v-if="user.role === 'ADMIN'" :value="0">全部店铺</option>
+						<option
+							v-if="user.role === 'ADMIN' || user.shopId === 1"
+							:value="1"
+						>
+							杭州旗舰店
+						</option>
+						<option
+							v-if="user.role === 'ADMIN' || user.shopId === 2"
+							:value="2"
+						>
+							上海精选店
+						</option></select
+					><span class="synthetic">模拟业务数据</span>
+				</div>
+			</header>
+			<main>
+				<p v-if="error" class="alert error" role="alert">
+					{{ error }}<button @click="error = ''">关闭</button>
+				</p>
+				<template v-if="tab === 'overview'">
+					<div class="page-heading">
+						<div>
+							<p class="eyebrow">经营概览</p>
+							<h1>看见数据，理解经营。</h1>
+							<p class="muted">2026 年 5 月至 10 月 · 按支付时间统计</p>
+						</div>
+						<button class="primary" @click="switchTab('analysis')">
+							发起分析 ↗
+						</button>
+					</div>
+					<section class="kpis">
+						<article>
+							<p>累计实付销售额</p>
+							<strong>¥{{ money(totalSales) }}</strong
+							><small>成功支付订单明细实付合计</small>
+						</article>
+						<article>
+							<p>成功支付订单</p>
+							<strong>{{ totalOrders }}</strong
+							><small>按订单编号去重</small>
+						</article>
+						<article>
+							<p>平均客单价</p>
+							<strong
+								>¥{{
+									money(totalOrders ? totalSales / totalOrders : 0)
+								}}</strong
+							><small>实付销售额 ÷ 支付订单数</small>
+						</article>
+					</section>
+					<section class="panel">
+						<div class="panel-heading">
+							<h2>月度销售趋势</h2>
+							<span class="muted">销售额 / 元</span>
+						</div>
+						<CommerceChart
+							v-if="overview.length"
+							:rows="overview"
+							x="month"
+							y="sales"
+							title="月度销售趋势"
+							line
+						/>
+						<p v-else class="empty">正在读取经营数据…</p>
+					</section>
+					<section class="panel questions">
+						<h2>从一个经营问题开始</h2>
+						<button
+							v-for="question in suggestions"
+							:key="question"
+							@click="ask(question)"
+						>
+							{{ question }}<span>↗</span>
+						</button>
+					</section>
+				</template>
+				<template v-if="tab === 'analysis'">
+					<div class="page-heading">
+						<div>
+							<p class="eyebrow">分析工作台</p>
+							<h1>你的下一个经营问题？</h1>
+							<p class="muted">分析计划、执行结果和指标口径均可追溯</p>
+						</div>
+					</div>
+					<section class="panel composer">
+						<label for="question">经营问题</label
+						><textarea
+							id="question"
+							v-model="question"
+							maxlength="2000"
+							rows="3"
+							placeholder="例如，比较上个月各品类的销售额和订单退款率"
+						/>
+						<div class="composer-footer">
+							<label
+								>分析参考日期
+								<input
+									v-model="referenceDate"
+									type="date"
+									min="2026-05-01"
+									max="2030-01-01" /></label
+							><button
+								class="primary"
+								:disabled="submitting || activeTask"
+								@click="submit"
+							>
+								{{ submitting ? '正在创建…' : '开始分析 ↗' }}
+							</button>
+						</div>
+					</section>
+					<div class="suggestion-list">
+						<button
+							v-for="item in suggestions"
+							:key="item"
+							@click="question = item"
+						>
+							{{ item }}
+						</button>
+					</div>
+					<div v-if="selected" class="analysis-grid">
+						<section class="panel timeline">
+							<div class="panel-heading">
+								<h2>分析进度</h2>
+								<span :class="['status', selected.status.toLowerCase()]">{{
+									statusName(selected.status)
+								}}</span>
+							</div>
+							<p class="muted small">{{ streamStatus }}</p>
+							<ol>
+								<li v-for="event in events" :key="event.id">
+									<span class="event-dot" /><strong>{{
+										eventName(event.type)
+									}}</strong>
+									<p>{{ eventText(event.payload) }}</p>
+								</li>
+							</ol>
+							<p v-if="!events.length" class="muted small">
+								任务 {{ selected.id.slice(0, 8) }}，进度正在同步
+							</p>
+							<p v-if="selected.error_message" class="error">
+								{{ selected.error_message }}
+							</p>
+							<button v-if="activeTask" class="secondary" @click="cancel">
+								取消任务</button
+							><button v-else class="secondary" @click="retry">重新分析</button>
+						</section>
+						<section class="panel report">
+							<div class="panel-heading">
+								<h2>分析结果与依据</h2>
+								<button v-if="report" class="text-button" @click="download">
+									导出报告 ↓
+								</button>
+							</div>
+							<p v-if="!report && !evidence.length" class="empty">
+								执行结果将在这里呈现
+							</p>
+							<div v-if="report" class="report-summary">
+								<p class="report-meta">
+									参考日期 {{ report.referenceDate }} · 指标版本
+									{{ report.metricVersion }} · {{ report.model }}
+								</p>
+								<h3>观察结果</h3>
+								<p
+									v-for="(observation, index) in report.observations"
+									:key="index"
+								>
+									{{ observation.text }}
+									<span class="citation"
+										>依据 {{ observation.evidence.join('、') }}</span
+									>
+								</p>
+								<template v-if="report.hypotheses?.length"
+									><h3>待验证推断</h3>
+									<p v-for="(item, index) in report.hypotheses" :key="index">
+										{{ item }}
+									</p></template
+								><template v-if="report.unconfirmed?.length"
+									><h3>未确认事项</h3>
+									<p v-for="(item, index) in report.unconfirmed" :key="index">
+										{{ item }}
+									</p></template
+								>
+							</div>
+							<article
+								v-for="(item, index) in evidence"
+								:key="item.id"
+								class="evidence"
+							>
+								<div class="panel-heading">
+									<h3>查询依据 {{ index + 1 }}</h3>
+									<span class="muted small"
+										>{{ item.result.elapsedMs }} ms ·
+										{{ item.result.rows.length }} 行</span
+									>
+								</div>
+								<p v-if="item.result.truncated" class="alert">
+									结果已截断至 1000 行，当前结果存在展示限制
+								</p>
+								<CommerceChart
+									v-if="chartFields(item.result)"
+									:rows="item.result.rows.slice(0, 30)"
+									:x="chartFields(item.result)!.x"
+									:y="chartFields(item.result)!.y"
+									:title="'查询依据 ' + (index + 1)"
+								/><ChatResultSet :data="tableData(item.result)" />
+								<details>
+									<summary>查看实际执行 SQL</summary>
+									<pre>{{ item.sql_text }}</pre>
+								</details>
+							</article>
+							<details v-if="selected.plan_json" class="plan">
+								<summary>查看分析计划与日期范围</summary>
+								<pre>{{ pretty(selected.plan_json) }}</pre>
+							</details>
+							<details v-if="selected.calls?.length">
+								<summary>模型调用与费用记录</summary>
+								<pre>{{ pretty(selected.calls) }}</pre>
+							</details>
+						</section>
+					</div>
+				</template>
+				<template v-if="tab === 'history'">
+					<div class="page-heading">
+						<div>
+							<p class="eyebrow">任务历史</p>
+							<h1>每次分析，都有记录。</h1>
+							<p class="muted">查看你的分析任务、结果和失败原因</p>
+						</div>
+						<button class="secondary" @click="loadHistory">刷新列表</button>
+					</div>
+					<section class="panel history">
+						<p v-if="!history.length" class="empty">还没有分析任务</p>
+						<button
+							v-for="task in history"
+							:key="task.id"
+							@click="openTask(task.id)"
+						>
+							<div>
+								<strong>{{ task.question }}</strong>
+								<p>
+									{{ task.created_at }} · 参考日期 {{ task.reference_date
+									}}<span v-if="task.error_message">
+										· {{ task.error_message }}</span
+									>
+								</p>
+							</div>
+							<span :class="['status', task.status.toLowerCase()]">{{
+								statusName(task.status)
+							}}</span>
+						</button>
+						<div class="pager">
+							<button
+								:disabled="page === 0"
+								@click="
+									page--;
+									loadHistory();
+								"
+							>
+								上一页</button
+							><span>第 {{ page + 1 }} 页</span
+							><button
+								:disabled="history.length < 20"
+								@click="
+									page++;
+									loadHistory();
+								"
+							>
+								下一页
+							</button>
+						</div>
+					</section>
+				</template>
+				<template v-if="tab === 'metrics'">
+					<div class="page-heading">
+						<div>
+							<p class="eyebrow">指标词典</p>
+							<h1>统一口径，才能比较。</h1>
+							<p class="muted">名称与别名检索 · 定义版本 1.0</p>
+						</div>
+					</div>
+					<section class="metric-grid">
+						<article v-for="metric in metrics" :key="metric.id" class="panel">
+							<span class="muted small"
+								>{{ metric.id }} · v{{ metric.version }}</span
+							>
+							<h2>{{ metric.name }}</h2>
+							<p>{{ metric.definition }}</p>
+							<div class="metric-time">时间依据 {{ metric.timeBasis }}</div>
+							<p class="muted small">
+								检索别名 {{ metric.aliases.join('、') }}
+							</p>
+						</article>
+					</section>
+				</template>
+				<template v-if="tab === 'admin' && admin">
+					<div class="page-heading">
+						<div>
+							<p class="eyebrow">管理员配置</p>
+							<h1>模型、预算与数据授权。</h1>
+						</div>
+						<button class="secondary" @click="loadAdmin">刷新配置</button>
+					</div>
+					<section class="kpis">
+						<article>
+							<p>当前模型</p>
+							<strong class="model-name">{{ admin.model }}</strong
+							><small>{{
+								admin.modelConfigured ? '凭据已配置' : '请在启动环境配置凭据'
+							}}</small>
+						</article>
+						<article>
+							<p>已消耗及待结算预留</p>
+							<strong>¥{{ money(admin.budget.committed_cny, 4) }}</strong
+							><small>失败且无 usage 的调用保留预留额度</small>
+						</article>
+						<article>
+							<p>本项目预算上限</p>
+							<strong>¥{{ admin.budget.limit_cny }}</strong
+							><small>总预算 20 元，保留 2 元余量</small>
+						</article>
+					</section>
+					<section class="panel">
+						<h2>分析员店铺授权</h2>
+						<div v-for="person in admin.users" :key="person.id" class="grant">
+							<strong>{{ person.username }}</strong
+							><span>{{ person.role }}</span
+							><select
+								v-if="person.role === 'ANALYST'"
+								:value="person.shop_id"
+								:aria-label="person.username + '店铺授权'"
+								@change="
+									grant(
+										person.id,
+										Number(($event.target as HTMLSelectElement).value),
+									)
+								"
+							>
+								<option :value="1">杭州旗舰店</option>
+								<option :value="2">上海精选店</option></select
+							><span v-else class="muted">全部店铺</span>
+						</div>
+						<p class="muted small">
+							模型凭据通过本地环境变量配置。店铺授权调整会影响该用户可访问的历史任务。
+						</p>
+					</section>
+				</template>
+			</main>
+			<footer>
+				CommerceInsight · 数据截至 2026-10-31 · 基于 DataAgent 二次开发
+			</footer>
+		</div>
+	</div>
+	<main v-else class="loading">正在连接分析工作台…</main>
 </template>
 <script setup lang="ts">
-import { commerceRequest, commerceError, type CommerceUser } from '~/composables/useCommerceApi';
+import {
+	commerceRequest,
+	commerceError,
+	type CommerceUser,
+} from '~/composables/useCommerceApi';
 definePageMeta({ layout: 'commerce' });
 useHead({ title: '经营分析 · CommerceInsight' });
-const user = ref<CommerceUser | null>(null); const tab = ref('overview'); const scope = ref(1);
-const question = ref(''); const referenceDate = ref('2026-11-13'); const error = ref(''); const submitting = ref(false);
-const overview = ref<Record<string, any>[]>([]); const history = ref<any[]>([]); const metrics = ref<any[]>([]); const admin = ref<any>(null);
-const selected = ref<any>(null); const events = ref<any[]>([]); const streamStatus = ref(''); const page = ref(0);
+const user = ref<CommerceUser | null>(null);
+const tab = ref('overview');
+const scope = ref(1);
+const question = ref('');
+const referenceDate = ref('2026-11-13');
+const error = ref('');
+const submitting = ref(false);
+const overview = ref<Record<string, any>[]>([]);
+const history = ref<any[]>([]);
+const metrics = ref<any[]>([]);
+const admin = ref<any>(null);
+const selected = ref<any>(null);
+const events = ref<any[]>([]);
+const streamStatus = ref('');
+const page = ref(0);
 let stream: EventSource | null = null;
-const suggestions = ['比较上个月各品类的销售额和订单退款率', '查看过去六个月的销售额变化趋势', '上个月哪些商品的销售额最高？'];
+const suggestions = [
+	'比较上个月各品类的销售额和订单退款率',
+	'查看过去六个月的销售额变化趋势',
+	'上个月哪些商品的销售额最高？',
+];
 const navigation = computed(() => [
-  { id: 'overview', name: '经营概览', icon: '◫' }, { id: 'analysis', name: '分析工作台', icon: '⌁' },
-  { id: 'history', name: '任务历史', icon: '◷' }, { id: 'metrics', name: '指标词典', icon: '≡' },
-  ...(user.value?.role === 'ADMIN' ? [{ id: 'admin', name: '管理配置', icon: '⚙' }] : []),
+	{ id: 'overview', name: '经营概览', icon: '◫' },
+	{ id: 'analysis', name: '分析工作台', icon: '⌁' },
+	{ id: 'history', name: '任务历史', icon: '◷' },
+	{ id: 'metrics', name: '指标词典', icon: '≡' },
+	...(user.value?.role === 'ADMIN'
+		? [{ id: 'admin', name: '管理配置', icon: '⚙' }]
+		: []),
 ]);
-const activeTask = computed(() => selected.value && ['QUEUED', 'RUNNING'].includes(selected.value.status));
-const totalSales = computed(() => overview.value.reduce((sum, row) => sum + Number(row.sales), 0));
-const totalOrders = computed(() => overview.value.reduce((sum, row) => sum + Number(row.paid_orders), 0));
-const report = computed(() => selected.value?.report_json ? JSON.parse(selected.value.report_json) : null);
-const evidence = computed(() => (selected.value?.evidence || []).map((item: any) => ({ ...item, result: JSON.parse(item.result_json) })));
-function money(value: any, digits = 2) { return Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
-function pretty(value: any) { try { return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2); } catch { return String(value); } }
-function statusName(status: string) { return ({ QUEUED: '排队中', RUNNING: '分析中', SUCCEEDED: '已完成', FAILED: '失败', CANCELLED: '已取消', TIMED_OUT: '已超时' } as Record<string, string>)[status] || status; }
-function eventName(type: string) { return ({ queued: '任务已创建', running: '开始分析', knowledge: '指标与结构检索', plan: '分析计划已生成', query: '执行 SQL', result: '查询结果已保存', terminal: '任务结束' } as Record<string, string>)[type] || type; }
-function eventText(payload: any) { if (payload.message) return payload.message; if (payload.purpose) return payload.purpose; if (payload.metrics) return `已加载 ${payload.metrics.length} 项指标定义与授权表结构`; if (payload.steps) return `${payload.steps.length} 个 SQL 步骤，日期 ${payload.dateRange?.start} 至 ${payload.dateRange?.endExclusive}（不含）`; if (payload.rowCount !== undefined) return `查询 ${payload.index} 返回 ${payload.rowCount} 行`; return payload.model || statusName(payload.status || ''); }
-function tableData(result: any) { return { resultSet: { column: result.columns, data: result.rows.map((row: any) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value === null ? '无可计算数据' : String(value)]))) } }; }
-function chartFields(result: any) { const first = result.rows[0]; if (!first || result.columns.length < 2) return null; const x = result.columns[0]; const y = result.columns.slice(1).find((key: string) => result.rows.some((row: any) => row[key] !== null && row[key] !== '' && Number.isFinite(Number(row[key])))); return y ? { x, y } : null; }
-async function safe(work: () => Promise<void>) { try { await work(); } catch (e: any) { if (e?.statusCode === 401 || e?.status === 401) { stream?.close(); await navigateTo('/login'); } else error.value = commerceError(e); } }
-async function loadOverview() { await safe(async () => { const result = await commerceRequest<any>(`/api/overview?scopeId=${scope.value}`); overview.value = result.rows; }); }
-async function loadHistory() { await safe(async () => { history.value = await commerceRequest<any[]>(`/api/analysis/tasks?page=${page.value}`); }); }
-async function loadAdmin() { await safe(async () => { admin.value = await commerceRequest('/api/admin/config'); }); }
-async function switchTab(next: string) { tab.value = next; if (next === 'overview') await loadOverview(); if (next === 'history') await loadHistory(); if (next === 'admin') await loadAdmin(); }
-function ask(text: string) { question.value = text; switchTab('analysis'); }
-async function scopeChanged() { await loadOverview(); }
-async function submit() { submitting.value = true; await safe(async () => { const task = await commerceRequest<any>('/api/analysis/tasks', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: { question: question.value, scopeId: scope.value, referenceDate: referenceDate.value } }); await openTask(task.id); }); submitting.value = false; }
-async function refreshTask(id: string) { const task = await commerceRequest<any>(`/api/analysis/tasks/${id}`); if (selected.value?.id === id) selected.value = task; }
-async function openTask(id: string) {
-  await safe(async () => {
-    stream?.close(); events.value = []; selected.value = await commerceRequest(`/api/analysis/tasks/${id}`); tab.value = 'analysis';
-    question.value = selected.value.question; referenceDate.value = selected.value.reference_date; scope.value = selected.value.scope_id;
-    await navigateTo({ path: '/commerce', query: { task: id } }, { replace: true });
-    streamStatus.value = '已连接进度事件'; stream = new EventSource(`/api/analysis/tasks/${id}/events`);
-    const currentStream = stream;
-    for (const type of ['queued', 'running', 'knowledge', 'plan', 'query', 'result', 'terminal']) {
-      currentStream.addEventListener(type, (event: MessageEvent) => {
-        if (selected.value?.id !== id) return;
-        if (!events.value.some(item => item.id === event.lastEventId)) events.value.push({ id: event.lastEventId, type, payload: JSON.parse(event.data) });
-        if (['result', 'terminal', 'plan'].includes(type)) safe(() => refreshTask(id));
-        if (type === 'terminal') { currentStream.close(); streamStatus.value = '进度记录已同步'; }
-      });
-    }
-    currentStream.addEventListener('closed', () => { currentStream.close(); streamStatus.value = '进度记录已同步'; safe(() => refreshTask(id)); });
-    currentStream.onerror = () => { streamStatus.value = '连接中断，正在自动重连…'; };
-  });
+const activeTask = computed(
+	() => selected.value && ['QUEUED', 'RUNNING'].includes(selected.value.status),
+);
+const totalSales = computed(() =>
+	overview.value.reduce((sum, row) => sum + Number(row.sales), 0),
+);
+const totalOrders = computed(() =>
+	overview.value.reduce((sum, row) => sum + Number(row.paid_orders), 0),
+);
+const report = computed(() =>
+	selected.value?.report_json ? JSON.parse(selected.value.report_json) : null,
+);
+const evidence = computed(() =>
+	(selected.value?.evidence || []).map((item: any) => ({
+		...item,
+		result: JSON.parse(item.result_json),
+	})),
+);
+function money(value: any, digits = 2) {
+	return Number(value || 0).toLocaleString('zh-CN', {
+		minimumFractionDigits: digits,
+		maximumFractionDigits: digits,
+	});
 }
-async function cancel() { await safe(async () => { await commerceRequest(`/api/analysis/tasks/${selected.value.id}/cancel`, { method: 'POST' }); await refreshTask(selected.value.id); }); }
-async function retry() { await safe(async () => { const task = await commerceRequest<any>(`/api/analysis/tasks/${selected.value.id}/retry`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }); await openTask(task.id); }); }
-async function logout() { await safe(async () => { await commerceRequest('/api/auth/logout', { method: 'POST' }); stream?.close(); await navigateTo('/login'); }); }
-async function grant(id: number, shopId: number) { await safe(async () => { await commerceRequest(`/api/admin/users/${id}/scope`, { method: 'PATCH', body: { shopId } }); await loadAdmin(); }); }
-async function download() { await safe(async () => { const data = await commerceRequest(`/api/analysis/tasks/${selected.value.id}/report`); const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `CommerceInsight-${selected.value.id}.json`; anchor.click(); URL.revokeObjectURL(url); }); }
-onMounted(async () => { await safe(async () => { user.value = await commerceRequest<CommerceUser>('/api/auth/me'); scope.value = user.value.shopId ?? 0; metrics.value = await commerceRequest<any[]>('/api/metrics'); await loadOverview(); const task = useRoute().query.task; if (typeof task === 'string') await openTask(task); }); });
+function pretty(value: any) {
+	try {
+		return JSON.stringify(
+			typeof value === 'string' ? JSON.parse(value) : value,
+			null,
+			2,
+		);
+	} catch {
+		return String(value);
+	}
+}
+function statusName(status: string) {
+	return (
+		(
+			{
+				QUEUED: '排队中',
+				RUNNING: '分析中',
+				SUCCEEDED: '已完成',
+				FAILED: '失败',
+				CANCELLED: '已取消',
+				TIMED_OUT: '已超时',
+			} as Record<string, string>
+		)[status] || status
+	);
+}
+function eventName(type: string) {
+	return (
+		(
+			{
+				queued: '任务已创建',
+				running: '开始分析',
+				knowledge: '指标与结构检索',
+				plan: '分析计划已生成',
+				query: '执行 SQL',
+				result: '查询结果已保存',
+				terminal: '任务结束',
+			} as Record<string, string>
+		)[type] || type
+	);
+}
+function eventText(payload: any) {
+	if (payload.message) return payload.message;
+	if (payload.purpose) return payload.purpose;
+	if (payload.metrics)
+		return `已加载 ${payload.metrics.length} 项指标定义与授权表结构`;
+	if (payload.steps)
+		return `${payload.steps.length} 个 SQL 步骤，日期 ${payload.dateRange?.start} 至 ${payload.dateRange?.endExclusive}（不含）`;
+	if (payload.rowCount !== undefined)
+		return `查询 ${payload.index} 返回 ${payload.rowCount} 行`;
+	return payload.model || statusName(payload.status || '');
+}
+function tableData(result: any) {
+	return {
+		resultSet: {
+			column: result.columns,
+			data: result.rows.map((row: any) =>
+				Object.fromEntries(
+					Object.entries(row).map(([key, value]) => [
+						key,
+						value === null ? '无可计算数据' : String(value),
+					]),
+				),
+			),
+		},
+	};
+}
+function chartFields(result: any) {
+	const first = result.rows[0];
+	if (!first || result.columns.length < 2) return null;
+	const x = result.columns[0];
+	const y = result.columns
+		.slice(1)
+		.find((key: string) =>
+			result.rows.some(
+				(row: any) =>
+					row[key] !== null &&
+					row[key] !== '' &&
+					Number.isFinite(Number(row[key])),
+			),
+		);
+	return y ? { x, y } : null;
+}
+async function safe(work: () => Promise<void>) {
+	try {
+		await work();
+	} catch (e: any) {
+		if (e?.statusCode === 401 || e?.status === 401) {
+			stream?.close();
+			await navigateTo('/login');
+		} else error.value = commerceError(e);
+	}
+}
+async function loadOverview() {
+	await safe(async () => {
+		const result = await commerceRequest<any>(
+			`/api/overview?scopeId=${scope.value}`,
+		);
+		overview.value = result.rows;
+	});
+}
+async function loadHistory() {
+	await safe(async () => {
+		history.value = await commerceRequest<any[]>(
+			`/api/analysis/tasks?page=${page.value}`,
+		);
+	});
+}
+async function loadAdmin() {
+	await safe(async () => {
+		admin.value = await commerceRequest('/api/admin/config');
+	});
+}
+async function switchTab(next: string) {
+	tab.value = next;
+	if (next === 'overview') await loadOverview();
+	if (next === 'history') await loadHistory();
+	if (next === 'admin') await loadAdmin();
+}
+function ask(text: string) {
+	question.value = text;
+	switchTab('analysis');
+}
+async function scopeChanged() {
+	await loadOverview();
+}
+async function submit() {
+	submitting.value = true;
+	await safe(async () => {
+		const task = await commerceRequest<any>('/api/analysis/tasks', {
+			method: 'POST',
+			headers: { 'Idempotency-Key': crypto.randomUUID() },
+			body: {
+				question: question.value,
+				scopeId: scope.value,
+				referenceDate: referenceDate.value,
+			},
+		});
+		await openTask(task.id);
+	});
+	submitting.value = false;
+}
+async function refreshTask(id: string) {
+	const task = await commerceRequest<any>(`/api/analysis/tasks/${id}`);
+	if (selected.value?.id === id) selected.value = task;
+}
+async function openTask(id: string) {
+	await safe(async () => {
+		stream?.close();
+		events.value = [];
+		selected.value = await commerceRequest(`/api/analysis/tasks/${id}`);
+		tab.value = 'analysis';
+		question.value = selected.value.question;
+		referenceDate.value = selected.value.reference_date;
+		scope.value = selected.value.scope_id;
+		await navigateTo(
+			{ path: '/commerce', query: { task: id } },
+			{ replace: true },
+		);
+		streamStatus.value = '已连接进度事件';
+		stream = new EventSource(`/api/analysis/tasks/${id}/events`);
+		const currentStream = stream;
+		for (const type of [
+			'queued',
+			'running',
+			'knowledge',
+			'plan',
+			'query',
+			'result',
+			'terminal',
+		]) {
+			currentStream.addEventListener(type, (event: MessageEvent) => {
+				if (selected.value?.id !== id) return;
+				if (!events.value.some((item) => item.id === event.lastEventId))
+					events.value.push({
+						id: event.lastEventId,
+						type,
+						payload: JSON.parse(event.data),
+					});
+				if (['result', 'terminal', 'plan'].includes(type))
+					safe(() => refreshTask(id));
+				if (type === 'terminal') {
+					currentStream.close();
+					streamStatus.value = '进度记录已同步';
+				}
+			});
+		}
+		currentStream.addEventListener('closed', () => {
+			currentStream.close();
+			streamStatus.value = '进度记录已同步';
+			safe(() => refreshTask(id));
+		});
+		currentStream.onerror = () => {
+			streamStatus.value = '连接中断，正在自动重连…';
+		};
+	});
+}
+async function cancel() {
+	await safe(async () => {
+		await commerceRequest(`/api/analysis/tasks/${selected.value.id}/cancel`, {
+			method: 'POST',
+		});
+		await refreshTask(selected.value.id);
+	});
+}
+async function retry() {
+	await safe(async () => {
+		const task = await commerceRequest<any>(
+			`/api/analysis/tasks/${selected.value.id}/retry`,
+			{ method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } },
+		);
+		await openTask(task.id);
+	});
+}
+async function logout() {
+	await safe(async () => {
+		await commerceRequest('/api/auth/logout', { method: 'POST' });
+		stream?.close();
+		await navigateTo('/login');
+	});
+}
+async function grant(id: number, shopId: number) {
+	await safe(async () => {
+		await commerceRequest(`/api/admin/users/${id}/scope`, {
+			method: 'PATCH',
+			body: { shopId },
+		});
+		await loadAdmin();
+	});
+}
+async function download() {
+	await safe(async () => {
+		const data = await commerceRequest(
+			`/api/analysis/tasks/${selected.value.id}/report`,
+		);
+		const url = URL.createObjectURL(
+			new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+		);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = `CommerceInsight-${selected.value.id}.json`;
+		anchor.click();
+		URL.revokeObjectURL(url);
+	});
+}
+onMounted(async () => {
+	await safe(async () => {
+		user.value = await commerceRequest<CommerceUser>('/api/auth/me');
+		scope.value = user.value.shopId ?? 0;
+		metrics.value = await commerceRequest<any[]>('/api/metrics');
+		await loadOverview();
+		const task = useRoute().query.task;
+		if (typeof task === 'string') await openTask(task);
+	});
+});
 onBeforeUnmount(() => stream?.close());
 </script>
 <style scoped>
-.workspace{min-height:100vh;background:#f5f6f8;display:flex;color:#19263c}.sidebar{width:240px;position:fixed;inset:0 auto 0 0;background:#12233e;color:white;padding:34px 22px;display:flex;flex-direction:column;z-index:10}.brand{font-size:22px;font-weight:750;letter-spacing:-1px;color:white;text-decoration:none}.brand span{color:#91b8ff}.sidebar-sub{font-size:11px;color:#91a2bc;margin-top:9px}.sidebar nav{margin-top:55px;display:grid;gap:10px}.sidebar nav button{padding:13px 15px;border-radius:7px;text-align:left;color:#a7b8d2;cursor:pointer;font-size:14px;display:flex;gap:13px;align-items:center}.sidebar nav button span{font-size:20px;width:23px}.sidebar nav button.active{color:white;background:#28476e}.sidebar nav button:hover{background:#203954}.account{margin-top:auto;display:flex;gap:10px;align-items:center;padding-top:24px;border-top:1px solid #2a3c56;font-size:12px}.account strong{font-size:13px}.account small{display:block;color:#8fa3bf;margin-top:3px}.account button{margin-left:auto;color:#8fa3bf;font-size:11px;cursor:pointer}.avatar{background:#395a86;border-radius:50%;width:33px;height:33px;display:grid;place-items:center}.main-shell{margin-left:240px;flex:1;min-width:0}.topbar{height:76px;background:#fff;border-bottom:1px solid #e6eaf0;display:flex;align-items:center;justify-content:space-between;padding:0 40px;font-size:13px}.scope{display:flex;align-items:center;gap:12px;color:#7b8799}.scope select{color:#253754;background:#f5f7fa;padding:8px 12px;border-radius:5px;cursor:pointer}.synthetic{border-left:1px solid #dfe4eb;padding-left:16px;font-size:11px}main{max-width:1400px;padding:38px 40px;margin:auto}.page-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px;gap:20px}.eyebrow{font-size:11px;color:#7c8da5;margin-bottom:10px;letter-spacing:1px}h1{font-size:29px;font-weight:650;letter-spacing:-.7px;margin-bottom:10px}h2{font-size:16px;font-weight:650}h3{font-size:14px;font-weight:650;margin:18px 0 10px}.muted{color:#7c899c;font-size:13px}.small{font-size:11px}.primary,.secondary{border-radius:6px;padding:11px 18px;cursor:pointer;font-size:13px;white-space:nowrap}.primary{background:#3267d6;color:#fff}.secondary{border:1px solid #dce3ec;background:#fff;color:#3b5275}.primary:disabled,button:disabled{opacity:.45;cursor:default}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:25px}.kpis article{border:1px solid #e2e7ee;background:#fff;border-radius:9px;padding:24px}.kpis p{font-size:12px;color:#748198}.kpis strong{display:block;font-size:30px;font-weight:650;letter-spacing:-1px;margin:13px 0}.kpis strong.model-name{font-size:21px;letter-spacing:-.5px}.kpis small{color:#95a0af;font-size:10px}.panel{background:white;border:1px solid #e2e7ee;border-radius:9px;padding:24px;margin-bottom:24px;min-width:0}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}.questions h2{margin-bottom:18px}.questions button{width:100%;text-align:left;padding:15px 0;border-top:1px solid #edf0f4;font-size:13px;color:#536984;cursor:pointer}.questions button span{float:right;color:#3267d6}.composer label{font-size:12px;color:#65768d}.composer>label{font-weight:600;display:block;margin-bottom:12px}.composer textarea{width:100%;background:#fafbfd;resize:vertical;min-height:100px;border:1px solid #e3e8ef;border-radius:6px;padding:14px;color:#243651;line-height:1.8;font-size:14px}.composer-footer{display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:12px}.composer-footer input{margin-left:12px;border:1px solid #dfe5ed;border-radius:4px;padding:6px 8px;color:#536984}.suggestion-list{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 28px}.suggestion-list button{font-size:11px;color:#647996;border:1px solid #dce4ef;border-radius:20px;padding:8px 12px;cursor:pointer;background:white}.analysis-grid{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}.timeline{padding:20px}.timeline .panel-heading{flex-wrap:wrap}.status{font-size:10px;border-radius:4px;padding:4px 7px;white-space:nowrap;background:#eef1f5;color:#748298}.status.succeeded{background:#e9f5ee;color:#32825a}.status.running,.status.queued{background:#eaf1ff;color:#3267d6}.status.failed,.status.timed_out{background:#fff0ee;color:#b14f42}.timeline ol{list-style:none;padding:20px 0}.timeline li{position:relative;padding:0 0 22px 20px;border-left:1px solid #e0e7f1;margin-left:4px}.timeline li:last-child{padding-bottom:0;border:0}.event-dot{position:absolute;left:-4px;top:3px;width:7px;height:7px;background:#6b95e3;border-radius:50%}.timeline li strong{font-size:12px}.timeline li p{font-size:11px;color:#8a97a9;margin-top:5px;line-height:1.8;overflow-wrap:anywhere}.timeline .secondary{width:100%}.report{padding:25px}.report-summary{font-size:13px;line-height:1.9}.report-summary p{margin-bottom:12px}.report-meta{color:#8b98aa;font-size:10px}.citation{font-size:10px;color:#3267d6;background:#eef3ff;padding:2px 6px;white-space:nowrap}.evidence{border-top:1px solid #e8edf4;margin-top:25px;padding-top:10px}.evidence .panel-heading h3{margin:12px 0}.empty{text-align:center;padding:55px 10px;color:#9aa6b6;font-size:13px}details{margin-top:20px;font-size:12px;color:#637996}summary{cursor:pointer}pre{padding:18px;background:#f6f8fb;border-radius:5px;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;line-height:1.8;margin-top:12px;max-height:400px;overflow:auto}.alert{padding:12px 16px;background:#fff8eb;color:#936d29;border-radius:6px;font-size:12px;margin-bottom:20px}.alert button{float:right;cursor:pointer}.error{color:#b44940}.alert.error{background:#fff0ee}.text-button{color:#3267d6;font-size:12px;cursor:pointer}.history>button{display:flex;width:100%;align-items:center;justify-content:space-between;text-align:left;padding:20px 0;border-bottom:1px solid #edf0f5;cursor:pointer;gap:20px}.history strong{font-size:13px;font-weight:550}.history p{color:#95a0af;font-size:10px;margin-top:8px}.pager{display:flex;justify-content:flex-end;gap:20px;font-size:12px;color:#7e8fa8;padding-top:25px}.pager button{cursor:pointer}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.metric-grid .panel{margin:0}.metric-grid h2{margin:13px 0}.metric-grid p{font-size:12px;line-height:1.9;color:#718198}.metric-time{padding:12px 0;border-top:1px solid #edf0f5;margin-top:20px;font-size:11px;color:#617b9f;line-height:1.8}.grant{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid #edf0f5;font-size:13px}.grant select{background:#f5f7fa;border-radius:5px;padding:8px 12px}.grant span{color:#8e9bb0;font-size:11px}.grant+.muted{margin-top:20px}footer{padding:10px 40px 25px;font-size:10px;color:#9aa7b8;text-align:center}.loading{display:grid;place-items:center;min-height:100vh;color:#8c9bb0}@media(max-width:1100px){.sidebar{width:205px;padding:30px 17px}.brand{font-size:19px}.main-shell{margin-left:205px}main{padding:28px 24px}.topbar{padding:0 24px}.analysis-grid{grid-template-columns:1fr}.timeline ol{display:grid;grid-template-columns:1fr 1fr;gap:14px}.kpis strong{font-size:24px}}@media(max-width:760px){.sidebar{position:static;width:100%;padding:20px}.workspace{display:block}.sidebar nav{display:flex;gap:4px;margin-top:20px;overflow:auto}.sidebar nav button{font-size:11px;padding:9px;white-space:nowrap}.sidebar nav button span{display:none}.sidebar-sub,.account{display:none}.main-shell{margin:0}.topbar{height:60px;padding:0 20px}.topbar>span,.synthetic{display:none}.scope{width:100%;justify-content:space-between}main{padding:24px 18px}h1{font-size:23px}.kpis{grid-template-columns:1fr;gap:10px}.kpis article{padding:18px}.kpis strong{font-size:28px}.metric-grid{grid-template-columns:1fr}.page-heading{align-items:start}.composer-footer{align-items:stretch;flex-direction:column}.panel{padding:18px}.analysis-grid{gap:0}.timeline ol{display:block}}
+.workspace {
+	min-height: 100vh;
+	background: #f5f6f8;
+	display: flex;
+	color: #19263c;
+}
+.sidebar {
+	width: 240px;
+	position: fixed;
+	inset: 0 auto 0 0;
+	background: #12233e;
+	color: white;
+	padding: 34px 22px;
+	display: flex;
+	flex-direction: column;
+	z-index: 10;
+}
+.brand {
+	font-size: 22px;
+	font-weight: 750;
+	letter-spacing: -1px;
+	color: white;
+	text-decoration: none;
+}
+.brand span {
+	color: #91b8ff;
+}
+.sidebar-sub {
+	font-size: 11px;
+	color: #91a2bc;
+	margin-top: 9px;
+}
+.sidebar nav {
+	margin-top: 55px;
+	display: grid;
+	gap: 10px;
+}
+.sidebar nav button {
+	padding: 13px 15px;
+	border-radius: 7px;
+	text-align: left;
+	color: #a7b8d2;
+	cursor: pointer;
+	font-size: 14px;
+	display: flex;
+	gap: 13px;
+	align-items: center;
+}
+.sidebar nav button span {
+	font-size: 20px;
+	width: 23px;
+}
+.sidebar nav button.active {
+	color: white;
+	background: #28476e;
+}
+.sidebar nav button:hover {
+	background: #203954;
+}
+.account {
+	margin-top: auto;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding-top: 24px;
+	border-top: 1px solid #2a3c56;
+	font-size: 12px;
+}
+.account strong {
+	font-size: 13px;
+}
+.account small {
+	display: block;
+	color: #8fa3bf;
+	margin-top: 3px;
+}
+.account button {
+	margin-left: auto;
+	color: #8fa3bf;
+	font-size: 11px;
+	cursor: pointer;
+}
+.avatar {
+	background: #395a86;
+	border-radius: 50%;
+	width: 33px;
+	height: 33px;
+	display: grid;
+	place-items: center;
+}
+.main-shell {
+	margin-left: 240px;
+	flex: 1;
+	min-width: 0;
+}
+.topbar {
+	height: 76px;
+	background: #fff;
+	border-bottom: 1px solid #e6eaf0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 40px;
+	font-size: 13px;
+}
+.scope {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: #7b8799;
+}
+.scope select {
+	color: #253754;
+	background: #f5f7fa;
+	padding: 8px 12px;
+	border-radius: 5px;
+	cursor: pointer;
+}
+.synthetic {
+	border-left: 1px solid #dfe4eb;
+	padding-left: 16px;
+	font-size: 11px;
+}
+main {
+	max-width: 1400px;
+	padding: 38px 40px;
+	margin: auto;
+}
+.page-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 30px;
+	gap: 20px;
+}
+.eyebrow {
+	font-size: 11px;
+	color: #7c8da5;
+	margin-bottom: 10px;
+	letter-spacing: 1px;
+}
+h1 {
+	font-size: 29px;
+	font-weight: 650;
+	letter-spacing: -0.7px;
+	margin-bottom: 10px;
+}
+h2 {
+	font-size: 16px;
+	font-weight: 650;
+}
+h3 {
+	font-size: 14px;
+	font-weight: 650;
+	margin: 18px 0 10px;
+}
+.muted {
+	color: #7c899c;
+	font-size: 13px;
+}
+.small {
+	font-size: 11px;
+}
+.primary,
+.secondary {
+	border-radius: 6px;
+	padding: 11px 18px;
+	cursor: pointer;
+	font-size: 13px;
+	white-space: nowrap;
+}
+.primary {
+	background: #3267d6;
+	color: #fff;
+}
+.secondary {
+	border: 1px solid #dce3ec;
+	background: #fff;
+	color: #3b5275;
+}
+.primary:disabled,
+button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+.kpis {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 18px;
+	margin-bottom: 25px;
+}
+.kpis article {
+	border: 1px solid #e2e7ee;
+	background: #fff;
+	border-radius: 9px;
+	padding: 24px;
+}
+.kpis p {
+	font-size: 12px;
+	color: #748198;
+}
+.kpis strong {
+	display: block;
+	font-size: 30px;
+	font-weight: 650;
+	letter-spacing: -1px;
+	margin: 13px 0;
+}
+.kpis strong.model-name {
+	font-size: 21px;
+	letter-spacing: -0.5px;
+}
+.kpis small {
+	color: #95a0af;
+	font-size: 10px;
+}
+.panel {
+	background: white;
+	border: 1px solid #e2e7ee;
+	border-radius: 9px;
+	padding: 24px;
+	margin-bottom: 24px;
+	min-width: 0;
+}
+.panel-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 13px;
+}
+.questions h2 {
+	margin-bottom: 18px;
+}
+.questions button {
+	width: 100%;
+	text-align: left;
+	padding: 15px 0;
+	border-top: 1px solid #edf0f4;
+	font-size: 13px;
+	color: #536984;
+	cursor: pointer;
+}
+.questions button span {
+	float: right;
+	color: #3267d6;
+}
+.composer label {
+	font-size: 12px;
+	color: #65768d;
+}
+.composer > label {
+	font-weight: 600;
+	display: block;
+	margin-bottom: 12px;
+}
+.composer textarea {
+	width: 100%;
+	background: #fafbfd;
+	resize: vertical;
+	min-height: 100px;
+	border: 1px solid #e3e8ef;
+	border-radius: 6px;
+	padding: 14px;
+	color: #243651;
+	line-height: 1.8;
+	font-size: 14px;
+}
+.composer-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 18px;
+	gap: 12px;
+}
+.composer-footer input {
+	margin-left: 12px;
+	border: 1px solid #dfe5ed;
+	border-radius: 4px;
+	padding: 6px 8px;
+	color: #536984;
+}
+.suggestion-list {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: -8px 0 28px;
+}
+.suggestion-list button {
+	font-size: 11px;
+	color: #647996;
+	border: 1px solid #dce4ef;
+	border-radius: 20px;
+	padding: 8px 12px;
+	cursor: pointer;
+	background: white;
+}
+.analysis-grid {
+	display: grid;
+	grid-template-columns: 260px 1fr;
+	gap: 20px;
+	align-items: start;
+}
+.timeline {
+	padding: 20px;
+}
+.timeline .panel-heading {
+	flex-wrap: wrap;
+}
+.status {
+	font-size: 10px;
+	border-radius: 4px;
+	padding: 4px 7px;
+	white-space: nowrap;
+	background: #eef1f5;
+	color: #748298;
+}
+.status.succeeded {
+	background: #e9f5ee;
+	color: #32825a;
+}
+.status.running,
+.status.queued {
+	background: #eaf1ff;
+	color: #3267d6;
+}
+.status.failed,
+.status.timed_out {
+	background: #fff0ee;
+	color: #b14f42;
+}
+.timeline ol {
+	list-style: none;
+	padding: 20px 0;
+}
+.timeline li {
+	position: relative;
+	padding: 0 0 22px 20px;
+	border-left: 1px solid #e0e7f1;
+	margin-left: 4px;
+}
+.timeline li:last-child {
+	padding-bottom: 0;
+	border: 0;
+}
+.event-dot {
+	position: absolute;
+	left: -4px;
+	top: 3px;
+	width: 7px;
+	height: 7px;
+	background: #6b95e3;
+	border-radius: 50%;
+}
+.timeline li strong {
+	font-size: 12px;
+}
+.timeline li p {
+	font-size: 11px;
+	color: #8a97a9;
+	margin-top: 5px;
+	line-height: 1.8;
+	overflow-wrap: anywhere;
+}
+.timeline .secondary {
+	width: 100%;
+}
+.report {
+	padding: 25px;
+}
+.report-summary {
+	font-size: 13px;
+	line-height: 1.9;
+}
+.report-summary p {
+	margin-bottom: 12px;
+}
+.report-meta {
+	color: #8b98aa;
+	font-size: 10px;
+}
+.citation {
+	font-size: 10px;
+	color: #3267d6;
+	background: #eef3ff;
+	padding: 2px 6px;
+	white-space: nowrap;
+}
+.evidence {
+	border-top: 1px solid #e8edf4;
+	margin-top: 25px;
+	padding-top: 10px;
+}
+.evidence .panel-heading h3 {
+	margin: 12px 0;
+}
+.empty {
+	text-align: center;
+	padding: 55px 10px;
+	color: #9aa6b6;
+	font-size: 13px;
+}
+details {
+	margin-top: 20px;
+	font-size: 12px;
+	color: #637996;
+}
+summary {
+	cursor: pointer;
+}
+pre {
+	padding: 18px;
+	background: #f6f8fb;
+	border-radius: 5px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-family: 'SFMono-Regular', Consolas, monospace;
+	font-size: 11px;
+	line-height: 1.8;
+	margin-top: 12px;
+	max-height: 400px;
+	overflow: auto;
+}
+.alert {
+	padding: 12px 16px;
+	background: #fff8eb;
+	color: #936d29;
+	border-radius: 6px;
+	font-size: 12px;
+	margin-bottom: 20px;
+}
+.alert button {
+	float: right;
+	cursor: pointer;
+}
+.error {
+	color: #b44940;
+}
+.alert.error {
+	background: #fff0ee;
+}
+.text-button {
+	color: #3267d6;
+	font-size: 12px;
+	cursor: pointer;
+}
+.history > button {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	text-align: left;
+	padding: 20px 0;
+	border-bottom: 1px solid #edf0f5;
+	cursor: pointer;
+	gap: 20px;
+}
+.history strong {
+	font-size: 13px;
+	font-weight: 550;
+}
+.history p {
+	color: #95a0af;
+	font-size: 10px;
+	margin-top: 8px;
+}
+.pager {
+	display: flex;
+	justify-content: flex-end;
+	gap: 20px;
+	font-size: 12px;
+	color: #7e8fa8;
+	padding-top: 25px;
+}
+.pager button {
+	cursor: pointer;
+}
+.metric-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20px;
+}
+.metric-grid .panel {
+	margin: 0;
+}
+.metric-grid h2 {
+	margin: 13px 0;
+}
+.metric-grid p {
+	font-size: 12px;
+	line-height: 1.9;
+	color: #718198;
+}
+.metric-time {
+	padding: 12px 0;
+	border-top: 1px solid #edf0f5;
+	margin-top: 20px;
+	font-size: 11px;
+	color: #617b9f;
+	line-height: 1.8;
+}
+.grant {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 0;
+	border-bottom: 1px solid #edf0f5;
+	font-size: 13px;
+}
+.grant select {
+	background: #f5f7fa;
+	border-radius: 5px;
+	padding: 8px 12px;
+}
+.grant span {
+	color: #8e9bb0;
+	font-size: 11px;
+}
+.grant + .muted {
+	margin-top: 20px;
+}
+footer {
+	padding: 10px 40px 25px;
+	font-size: 10px;
+	color: #9aa7b8;
+	text-align: center;
+}
+.loading {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+	color: #8c9bb0;
+}
+@media (max-width: 1100px) {
+	.sidebar {
+		width: 205px;
+		padding: 30px 17px;
+	}
+	.brand {
+		font-size: 19px;
+	}
+	.main-shell {
+		margin-left: 205px;
+	}
+	main {
+		padding: 28px 24px;
+	}
+	.topbar {
+		padding: 0 24px;
+	}
+	.analysis-grid {
+		grid-template-columns: 1fr;
+	}
+	.timeline ol {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 14px;
+	}
+	.kpis strong {
+		font-size: 24px;
+	}
+}
+@media (max-width: 760px) {
+	.sidebar {
+		position: static;
+		width: 100%;
+		padding: 20px;
+	}
+	.workspace {
+		display: block;
+	}
+	.sidebar nav {
+		display: flex;
+		gap: 4px;
+		margin-top: 20px;
+		overflow: auto;
+	}
+	.sidebar nav button {
+		font-size: 11px;
+		padding: 9px;
+		white-space: nowrap;
+	}
+	.sidebar nav button span {
+		display: none;
+	}
+	.sidebar-sub,
+	.account {
+		display: none;
+	}
+	.main-shell {
+		margin: 0;
+	}
+	.topbar {
+		height: 60px;
+		padding: 0 20px;
+	}
+	.topbar > span,
+	.synthetic {
+		display: none;
+	}
+	.scope {
+		width: 100%;
+		justify-content: space-between;
+	}
+	main {
+		padding: 24px 18px;
+	}
+	h1 {
+		font-size: 23px;
+	}
+	.kpis {
+		grid-template-columns: 1fr;
+		gap: 10px;
+	}
+	.kpis article {
+		padding: 18px;
+	}
+	.kpis strong {
+		font-size: 28px;
+	}
+	.metric-grid {
+		grid-template-columns: 1fr;
+	}
+	.page-heading {
+		align-items: start;
+	}
+	.composer-footer {
+		align-items: stretch;
+		flex-direction: column;
+	}
+	.panel {
+		padding: 18px;
+	}
+	.analysis-grid {
+		gap: 0;
+	}
+	.timeline ol {
+		display: block;
+	}
+}
 </style>

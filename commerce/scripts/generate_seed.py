@@ -5,7 +5,7 @@ from decimal import Decimal
 import random
 
 rng = random.Random(20261113)
-lines = ["USE commerce_data;"]
+lines = ["SET NAMES utf8mb4;", "USE commerce_data;"]
 def insert(table, values):
     def literal(value):
         if value is None:

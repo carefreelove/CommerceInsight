@@ -1,3 +1,4 @@
+SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS commerce_scope_all;
 CREATE SQL SECURITY DEFINER VIEW commerce_scope_all.shops AS SELECT id,name FROM commerce_data.shops;
 CREATE SQL SECURITY DEFINER VIEW commerce_scope_all.products AS SELECT id,shop_id,name,category,price FROM commerce_data.products;

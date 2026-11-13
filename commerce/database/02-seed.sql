@@ -1,3 +1,4 @@
+SET NAMES utf8mb4;
 USE commerce_data;
 INSERT INTO shops VALUES (1,'杭州旗舰店');
 INSERT INTO products VALUES (111,1,'数码商品1','数码',45);

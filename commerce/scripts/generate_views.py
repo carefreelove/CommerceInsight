@@ -1,5 +1,5 @@
 from pathlib import Path
-parts=[]
+parts=['SET NAMES utf8mb4;']
 for scope in ['all','1','2']:
     schema=f'commerce_scope_{scope}'
     parts.append(f'CREATE DATABASE IF NOT EXISTS {schema};')
